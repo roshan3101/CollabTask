@@ -1,4 +1,4 @@
-from Backend.app.core.dependencies import require_user
+from Backend.app.dependencies import require_user
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.responses import JSONResponse
 
