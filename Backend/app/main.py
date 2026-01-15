@@ -9,8 +9,11 @@ from app.exceptions.exception_handler import (
     pydantic_validation_exception_handler,
     general_exception_handler,
 )
+from app.middlewares.authentication import AuthMiddleware
 
 app = FastAPI(lifespan=lifespan)
+
+app.add_middleware(AuthMiddleware)
 
 app.include_router(api_router)
 
