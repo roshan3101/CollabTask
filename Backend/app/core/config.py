@@ -11,7 +11,9 @@ class Config:
         self.POSTGRES_PORT = os.getenv("POSTGRES_PORT")
         self.POSTGRES_HOST = os.getenv("POSTGRES_HOST")
 
-        self.DATABASE_URL = f"postgresql://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
+        self.DATABASE_URL = f"postgres://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
+
+        self.JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "your_secret_key")
 
         self.environment = os.getenv("ENVIRONMENT", "development")
 

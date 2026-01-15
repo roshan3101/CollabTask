@@ -1,4 +1,10 @@
-[tool.aerich]
-tortoise_orm = "app.core.db"
-location = "./migrations"
+[tool.aerich]
+
+tortoise_orm = "app.core.db.TORTOISE_ORM"
+
+location = "./migrations"
+
 src_folder = "./."
+
+[tool.fastapi]
+app = "app.main:app"
