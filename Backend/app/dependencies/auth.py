@@ -1,4 +1,4 @@
-from Backend.app.models.project import Project
+from app.models import Project
 from fastapi import Request, HTTPException, status
 from app.models import Organization, Membership
 from typing import List
@@ -66,15 +66,15 @@ def project_access():
         user = require_user(request)
 
         project = await Project.get_or_none(
-            id = project_id
-        ).prefetch_related('org')
+            id=project_id
+        ).select_related('org')
 
         if not project or project.is_archieved:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Project not found"
             )
-    
+
         membership = await Membership.get_or_none(
             userId=user.id,
             organizationId=project.org.id,
@@ -86,7 +86,7 @@ def project_access():
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You do not have access to this project"
             )
-        
+
         request.state.project = project
         request.state.role = membership.role
 
