@@ -12,13 +12,23 @@ from app.exceptions.exception_handler import (
 )
 from app.exceptions.exception import CollabTaskException
 from app.middlewares.authentication import AuthMiddleware
+from app.middlewares.rate_limiting import RateLimitingMiddleware
+from app.observability.logging import RequestIDMiddleware
+from starlette.responses import Response
 
 app = FastAPI(lifespan=lifespan)
 
+app.add_middleware(RateLimitingMiddleware)
 app.add_middleware(AuthMiddleware)
+app.add_middleware(RequestIDMiddleware)
 
 app.include_router(api_router)
 
+
+@app.get("/health")
+async def health():
+    """Health check endpoint"""
+    return {"status": "healthy"}
 
 app.add_exception_handler(CollabTaskException, collab_task_exception_handler)
 app.add_exception_handler(HTTPException, http_exception_handler)
