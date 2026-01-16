@@ -1,14 +1,12 @@
 from app.models import Project
-from fastapi import Request, HTTPException, status
+from fastapi import Request
 from app.models import Organization, Membership
+from app.exceptions import UnauthorizedException, NotFoundException, ForbiddenException
 from typing import List
 
 def require_user(request: Request):
     if not request.state.user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authentication required"
-        )
+        raise UnauthorizedException("Authentication required")
     return request.state.user
 
 def require_org_membership():
@@ -17,10 +15,7 @@ def require_org_membership():
 
         org = await Organization.get_or_none(id=org_id)
         if not org:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Organization not found"
-            )
+            raise NotFoundException("Organization not found")
 
         membership = await Membership.get_or_none(
             userId=user.id,
@@ -29,10 +24,7 @@ def require_org_membership():
         )
 
         if not membership:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You are not a member of this organization"
-            )
+            raise ForbiddenException("You are not a member of this organization")
 
         request.state.org = org
         request.state.role = membership.role
@@ -46,16 +38,10 @@ def require_role(allowed_roles: List[str]):
         user = require_user(request)
 
         if not hasattr(request.state, 'role'):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Organization membership required"
-            )
+            raise ForbiddenException("Organization membership required")
 
         if request.state.role not in allowed_roles:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Insufficient permissions. Required roles: {', '.join(allowed_roles)}"
-            )
+            raise ForbiddenException(f"Insufficient permissions. Required roles: {', '.join(allowed_roles)}")
 
         return request.state.role
 
@@ -69,11 +55,11 @@ def project_access():
             id=project_id
         ).select_related('org')
 
-        if not project or project.is_archieved:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Project not found"
-            )
+        if not project:
+            raise NotFoundException("Project not found")
+        
+        if project.is_archieved:
+            raise NotFoundException("This project has been archived and is no longer accessible")
 
         membership = await Membership.get_or_none(
             userId=user.id,
@@ -82,10 +68,7 @@ def project_access():
         )
 
         if not membership:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You do not have access to this project"
-            )
+            raise ForbiddenException("You do not have access to this project")
 
         request.state.project = project
         request.state.role = membership.role
