@@ -26,3 +26,7 @@ class Project(models.Model):
 
     class Meta:
         table = "projects"
+        indexes = [
+            ("org",),
+            ("org", "is_archieved"),
+        ]

@@ -24,3 +24,4 @@ class Membership(models.Model):
 
     class Meta:
         table = "memberships"
+        unique_together = ("userId", "organizationId")

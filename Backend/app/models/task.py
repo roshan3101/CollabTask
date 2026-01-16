@@ -42,6 +42,11 @@ class Task(models.Model):
 
     class Meta:
         table = "tasks"
+        indexes = [
+            ("project",),
+            ("project", "status"),
+            ("project", "assignee"),
+        ]
 
     def __str__(self):
         return f"Task: {self.title} ({self.status})"
