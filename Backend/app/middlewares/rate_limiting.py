@@ -1,5 +1,5 @@
 import time
-import logging
+from app.observability.logging import get_logger
 from typing import Dict, Optional
 from collections import defaultdict
 from fastapi import Request, HTTPException, status
@@ -7,7 +7,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
 from app.exceptions import TooManyRequestsException
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class RateLimitConfig:

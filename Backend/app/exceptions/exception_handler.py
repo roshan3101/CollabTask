@@ -4,10 +4,10 @@ from fastapi.exceptions import RequestValidationError
 from pydantic import ValidationError
 from app.exceptions.exception import CollabTaskException
 from app.utils.apiResponse import ErrorResponse
-import logging
+from app.observability.logging import get_logger
 import traceback
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def collab_task_exception_handler(request: Request, exc: CollabTaskException):
