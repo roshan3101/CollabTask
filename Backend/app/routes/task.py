@@ -66,7 +66,7 @@ async def update_task(
 
     await TaskManager.validate_project_access(project_id, str(user.id), require_write=True)
 
-    result = await TaskManager.update_task(task_id, payload)
+    result = await TaskManager.update_task(task_id, payload, str(user.id))
     content = ApiResponse(success=True, message="Task updated successfully", data=result)
     return JSONResponse(content=content, status_code=200)
 
@@ -84,7 +84,7 @@ async def assign_task(
 
     await TaskManager.validate_project_access(project_id, str(user.id), require_write=True)
 
-    result = await TaskManager.assign_task(task_id, payload)
+    result = await TaskManager.assign_task(task_id, payload, str(user.id))
     content = ApiResponse(success=True, message="Task assigned successfully", data=result)
     return JSONResponse(content=content, status_code=200)
 
@@ -102,6 +102,6 @@ async def change_task_status(
 
     await TaskManager.validate_project_access(project_id, str(user.id), require_write=True)
 
-    result = await TaskManager.change_task_status(task_id, payload)
+    result = await TaskManager.change_task_status(task_id, payload, str(user.id))
     content = ApiResponse(success=True, message="Task status updated successfully", data=result)
     return JSONResponse(content=content, status_code=200)
