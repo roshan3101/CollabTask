@@ -1,3 +1,4 @@
+from Backend.app.models.project import Project
 from fastapi import Request, HTTPException, status
 from app.models import Organization, Membership
 from typing import List
@@ -59,3 +60,35 @@ def require_role(allowed_roles: List[str]):
         return request.state.role
 
     return role_guard
+
+def project_access():
+    async def project_access_guard(project_id: str, request: Request):
+        user = require_user(request)
+
+        project = await Project.get_or_none(
+            id = project_id
+        ).prefetch_related('org')
+
+        if not project or project.is_archieved:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Project not found"
+            )
+    
+        membership = await Membership.get_or_none(
+            userId=user.id,
+            organizationId=project.org.id,
+            status="active"
+        )
+
+        if not membership:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have access to this project"
+            )
+        
+        request.state.project = project
+        request.state.role = membership.role
+
+        return membership
+    return project_access_guard
