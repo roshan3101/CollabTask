@@ -1,5 +1,6 @@
 from app.models import Activity, EntityType, ActionType
 from typing import Dict, Any, Optional
+from app.constants import GeneralConstants
 
 class ActivityManager:
 
@@ -29,7 +30,7 @@ class ActivityManager:
         cls,
         entity_type: EntityType,
         entity_id: str,
-        limit: int = 50
+        limit: int = GeneralConstants.DEFAULT_ACTIVITY_LIMIT
     ) -> list:
 
         activities = await Activity.filter(
@@ -44,7 +45,7 @@ class ActivityManager:
         cls,
         org_id: str,
         entity_type: Optional[EntityType] = None,
-        limit: int = 100
+        limit: int = GeneralConstants.ORG_ACTIVITY_LIMIT
     ) -> list:
 
         query = Activity.filter(org_id=org_id)
@@ -59,7 +60,7 @@ class ActivityManager:
         cls,
         user_id: str,
         org_id: Optional[str] = None,
-        limit: int = 50
+        limit: int = GeneralConstants.DEFAULT_ACTIVITY_LIMIT
     ) -> list:
 
         query = Activity.filter(user_id=user_id)

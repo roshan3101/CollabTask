@@ -4,6 +4,7 @@ from app.schemas.task import CREATE_TASK_SCHEMA, UPDATE_TASK_SCHEMA, ASSIGN_TASK
 from tortoise.transactions import in_transaction
 from app.managers.activity import ActivityManager
 from tortoise.exceptions import IntegrityError
+from app.constants import GeneralConstants, ErrorMessages
 
 class TaskManager:
 
@@ -12,17 +13,17 @@ class TaskManager:
 
         validated_data = CREATE_TASK_SCHEMA(**payload)
 
-        if validated_data.status not in ["todo", "in_progress", "review", "done"]:
-            raise BadRequestException("Invalid status. Must be 'todo', 'in_progress', 'review', or 'done'.")
+        if validated_data.status not in GeneralConstants.TASK_STATUSES:
+            raise BadRequestException(ErrorMessages.INVALID_STATUS)
 
         project = await Project.get_or_none(id=project_id, is_archieved=False)
         if not project:
-            raise BadRequestException("Project not found or archived.")
+            raise BadRequestException(ErrorMessages.PROJECT_NOT_FOUND)
 
         if validated_data.assignee_id:
             assignee = await User.get_or_none(id=validated_data.assignee_id)
             if not assignee:
-                raise BadRequestException("Assignee not found.")
+                raise BadRequestException(ErrorMessages.ASSIGNEE_NOT_FOUND)
         else:
             assignee = None
 
@@ -57,7 +58,7 @@ class TaskManager:
 
         task = await Task.get_or_none(id=task_id).select_related('project', 'assignee', 'created_by')
         if not task:
-            raise BadRequestException("Task not found.")
+            raise BadRequestException(ErrorMessages.TASK_NOT_FOUND)
 
         return TaskSerializer.from_orm(task).dict()
 
@@ -65,20 +66,20 @@ class TaskManager:
     async def update_task(cls, task_id: str, payload: dict, user_id: str):
         validated_data = UPDATE_TASK_SCHEMA(**payload)
 
-        if validated_data.status and validated_data.status not in ["todo", "in_progress", "review", "done"]:
-            raise BadRequestException("Invalid status. Must be 'todo', 'in_progress', 'review', or 'done'.")
+        if validated_data.status and validated_data.status not in GeneralConstants.TASK_STATUSES:
+            raise BadRequestException(ErrorMessages.INVALID_STATUS)
 
         task = await Task.get_or_none(id=task_id).select_related('project')
         if not task:
-            raise BadRequestException("Task not found.")
+            raise BadRequestException(ErrorMessages.TASK_NOT_FOUND)
 
         if task.version != validated_data.version:
-            raise BadRequestException("Task has been modified by another user. Please refresh and try again.")
+            raise BadRequestException(ErrorMessages.TASK_MODIFIED)
 
         if validated_data.assignee_id:
             assignee = await User.get_or_none(id=validated_data.assignee_id)
             if not assignee:
-                raise BadRequestException("Assignee not found.")
+                raise BadRequestException(ErrorMessages.ASSIGNEE_NOT_FOUND)
         else:
             assignee = None
 
@@ -125,17 +126,17 @@ class TaskManager:
 
         task = await Task.get_or_none(id=task_id).select_related('project')
         if not task:
-            raise BadRequestException("Task not found.")
+            raise BadRequestException(ErrorMessages.TASK_NOT_FOUND)
 
         if task.version != validated_data.version:
-            raise BadRequestException("Task has been modified by another user. Please refresh and try again.")
+            raise BadRequestException(ErrorMessages.TASK_MODIFIED)
 
         old_assignee_id = str(task.assignee_id) if task.assignee_id else None
 
         if validated_data.assignee_id:
             assignee = await User.get_or_none(id=validated_data.assignee_id)
             if not assignee:
-                raise BadRequestException("Assignee not found.")
+                raise BadRequestException(ErrorMessages.ASSIGNEE_NOT_FOUND)
         else:
             assignee = None
 
@@ -158,15 +159,15 @@ class TaskManager:
     async def change_task_status(cls, task_id: str, payload: dict, user_id: str):
         validated_data = CHANGE_STATUS_SCHEMA(**payload)
 
-        if validated_data.status not in ["todo", "in_progress", "review", "done"]:
-            raise BadRequestException("Invalid status. Must be 'todo', 'in_progress', 'review', or 'done'.")
+        if validated_data.status not in GeneralConstants.TASK_STATUSES:
+            raise BadRequestException(ErrorMessages.INVALID_STATUS)
 
         task = await Task.get_or_none(id=task_id).select_related('project')
         if not task:
-            raise BadRequestException("Task not found.")
+            raise BadRequestException(ErrorMessages.TASK_NOT_FOUND)
 
         if task.version != validated_data.version:
-            raise BadRequestException("Task has been modified by another user. Please refresh and try again.")
+            raise BadRequestException(ErrorMessages.TASK_MODIFIED)
 
         old_status = task.status
 
@@ -185,7 +186,7 @@ class TaskManager:
     async def list_tasks_by_project(cls, project_id: str):
         project = await Project.get_or_none(id=project_id, is_archieved=False)
         if not project:
-            raise BadRequestException("Project not found or archived.")
+            raise BadRequestException(ErrorMessages.PROJECT_NOT_FOUND)
 
         tasks = await Task.filter(project_id=project_id).select_related('assignee', 'created_by').order_by('createdAt')
 
@@ -196,7 +197,7 @@ class TaskManager:
 
         project = await Project.get_or_none(id=project_id, is_archieved=False).select_related('org')
         if not project:
-            raise BadRequestException("Project not found or archived.")
+            raise BadRequestException(ErrorMessages.PROJECT_NOT_FOUND)
 
         membership = await Membership.get_or_none(
             userId=user_id,
@@ -204,6 +205,6 @@ class TaskManager:
             status="active"
         )
         if not membership:
-            raise BadRequestException("You do not have access to this project.")
+            raise BadRequestException(ErrorMessages.NO_PROJECT_ACCESS)
 
         return project, membership

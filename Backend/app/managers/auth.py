@@ -4,6 +4,7 @@ from app.utils.auth import OTPUtils, JWTUtils, PasswordUtils
 from app.utils.validator import Validator
 from app.schemas.auth import SIGNUP_SCHEMA, LOGIN_SCHEMA, VERIFY_LOGIN_SCHEMA
 from app.schemas.user import UserSerializer
+from app.constants import ErrorMessages
 
 class AuthManager:
     @classmethod
@@ -13,7 +14,7 @@ class AuthManager:
 
         existingUser = await User.get_or_none(email=payload.get("email"))
         if existingUser:
-            raise BadRequestException("User with this email already exists.")
+            raise BadRequestException(ErrorMessages.USER_EXISTS)
         
         if 'password' in payload:
             hashed_password = PasswordUtils.hash_password(payload.get("password"))
@@ -31,11 +32,11 @@ class AuthManager:
 
         user = await User.get_or_none(email=email)
         if not user:
-            raise BadRequestException("Invalid email or password.")
+            raise BadRequestException(ErrorMessages.INVALID_CREDENTIALS)
         
         is_password_valid = PasswordUtils.verify_password(password, user.password)
         if not is_password_valid:
-            raise BadRequestException("Invalid email or password.")
+            raise BadRequestException(ErrorMessages.INVALID_CREDENTIALS)
         
         await OTPUtils.send_otp(user_id=str(user.id), email=user.email)
         
@@ -49,12 +50,12 @@ class AuthManager:
         user = await User.get_or_none(id=user_id)
 
         if not user:
-            raise BadRequestException("User not found.")
+            raise BadRequestException(ErrorMessages.USER_NOT_FOUND)
         
         otp = payload.get("otp")
         is_otp_valid = await OTPUtils.verify_otp(user_id, otp)
         if not is_otp_valid:
-            raise BadRequestException("Invalid OTP.")
+            raise BadRequestException(ErrorMessages.INVALID_OTP)
         
         tokens = await JWTUtils.create_token_pair(user)
         await OTPUtils.delete_otp(user_id)
@@ -70,11 +71,11 @@ class AuthManager:
     async def logout(cls, user_context: dict):
         user_id = user_context.get("user_id")
         if not user_id:
-            raise BadRequestException("User not authenticated.")
+            raise BadRequestException(ErrorMessages.USER_NOT_AUTHENTICATED)
         
         user = await User.get_or_none(id=user_id)
         if not user:
-            raise BadRequestException("User not found.")
+            raise BadRequestException(ErrorMessages.USER_NOT_FOUND)
         
         await UserSessions.filter(userId=user_id).delete()
         return True
@@ -85,15 +86,15 @@ class AuthManager:
         user_id = user_context.get("user_id")
 
         if not user_id:
-            raise BadRequestException("User not authenticated.")
+            raise BadRequestException(ErrorMessages.USER_NOT_AUTHENTICATED)
         
         user = await User.get_or_none(id=user_id)
         if not user:
-            raise BadRequestException("User not found.")
+            raise BadRequestException(ErrorMessages.USER_NOT_FOUND)
         
         session = await UserSessions.get_or_none(userId=user_id, refreshToken=refresh_token)
         if not session:
-            raise BadRequestException("Invalid refresh token.")
+            raise BadRequestException(ErrorMessages.INVALID_REFRESH_TOKEN)
         
         await JWTUtils.verify_token(refresh_token, type="refresh")
         
@@ -111,7 +112,7 @@ class AuthManager:
         email = payload.get("email")
         user = await User.get_or_none(email=email)
         if not user:
-            raise BadRequestException("User not found.")
+            raise BadRequestException(ErrorMessages.USER_NOT_FOUND)
         
         await OTPUtils.send_otp(user_id=str(user.id), email=user.email)
         return True
@@ -131,11 +132,11 @@ class AuthManager:
 
         user = await User.get_or_none(email=email)
         if not user:
-            raise BadRequestException("User not found.")
+            raise BadRequestException(ErrorMessages.USER_NOT_FOUND)
 
         is_otp_valid = await OTPUtils.verify_otp(user_id=str(user.id), otp=otp)
         if not is_otp_valid:
-            raise BadRequestException("Invalid OTP.")
+            raise BadRequestException(ErrorMessages.INVALID_OTP)
 
         hashed_password = PasswordUtils.hash_password(new_password)
         await User.filter(id=user.id).update(password=hashed_password)

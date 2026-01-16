@@ -8,6 +8,7 @@ import bcrypt
 from app.exceptions.exception import BadRequestException
 from app.models.auth import Auth
 from app.core import settings
+from app.constants import ErrorMessages, GeneralConstants
 from app.constants import AuthConstants
 
 class OTPUtils:
@@ -46,7 +47,7 @@ class OTPUtils:
 
     @classmethod
     def _generate_otp(cls) -> str:
-        return str(random.randint(100000, 999999))
+        return str(random.randint(GeneralConstants.OTP_MIN, GeneralConstants.OTP_MAX))
 
 class JWTUtils:
     @classmethod
@@ -64,12 +65,12 @@ class JWTUtils:
                 algorithms=[AuthConstants.JWT_ALGORITHM],
             )
             if payload.get("type") != type:
-                raise BadRequestException("Invalid token type.")
+                raise BadRequestException(ErrorMessages.INVALID_TOKEN_TYPE)
             return payload
         except jwt.ExpiredSignatureError:
-            raise BadRequestException("Token has expired.")
+            raise BadRequestException(ErrorMessages.TOKEN_EXPIRED)
         except jwt.InvalidTokenError:
-            raise BadRequestException("Invalid token.")
+            raise BadRequestException(ErrorMessages.INVALID_TOKEN)
         except Exception as e:
             raise BadRequestException(str(e))
 
