@@ -1,4 +1,5 @@
-from app.models import Project, Organization, Membership, MembershipRole
+from app.models import Project, Organization, Membership
+from app.models.membership import MembershipRole
 from app.exceptions import BadRequestException
 from app.schemas.project import CREATE_PROJECT_SCHEMA, UPDATE_PROJECT_SCHEMA, ProjectSerializer
 from tortoise.transactions import in_transaction

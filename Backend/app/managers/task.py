@@ -1,4 +1,5 @@
-from app.models import Task, Project, User, Membership, MembershipRole
+from app.models import Task, Project, User, Membership
+from app.models.membership import MembershipRole
 from app.exceptions import (
     BadRequestException, NotFoundException, ConflictException, ForbiddenException
 )

@@ -1,4 +1,5 @@
-from app.models import Organization, Membership, MembershipRole, MembershipStatus, User
+from app.models import Organization, Membership, User
+from app.models.membership import MembershipRole, MembershipStatus
 from app.exceptions import BadRequestException
 from app.schemas.organization import CREATE_ORGANIZATION_SCHEMA, UPDATE_ORGANIZATION_SCHEMA, OrganizationSerializer
 from tortoise.transactions import in_transaction

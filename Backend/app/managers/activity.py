@@ -1,4 +1,5 @@
-from app.models import Activity, EntityType, ActionType
+from app.models import Activity
+from app.models.activity import EntityType, ActionType
 from typing import Dict, Any, Optional
 from app.constants import GeneralConstants
 
