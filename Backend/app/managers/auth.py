@@ -2,7 +2,7 @@ from app.exceptions import BadRequestException
 from app.models import UserSessions, User
 from app.utils.auth import OTPUtils, JWTUtils, PasswordUtils
 from app.utils.validator import Validator
-from app.schemas.auth import SIGNUP_SCHEMA, LOGIN_SCHEMA, VERIFY_LOGIN_SCHEMA
+from app.schemas.auth import SIGNUP_SCHEMA, LOGIN_SCHEMA, VERIFY_LOGIN_SCHEMA, FORGET_PASSWORD_INITIATE_SCHEMA, FORGET_PASSWORD_VERIFY_SCHEMA
 from app.schemas.user import UserSerializer
 from app.constants import ErrorMessages
 
@@ -21,6 +21,9 @@ class AuthManager:
             payload['password'] = hashed_password
         
         user = await User.create(**payload)
+
+        await OTPUtils.send_otp(user_id=str(user.id), email=user.email)
+
         return UserSerializer.from_orm(user).dict()
     
     @classmethod
@@ -40,32 +43,36 @@ class AuthManager:
         
         await OTPUtils.send_otp(user_id=str(user.id), email=user.email)
         
-        return UserSerializer.from_orm(user).dict()
+        return {"email": user.email}
     
     @classmethod
     async def verify_login(cls, payload: dict):
         payload = Validator.validate_schema(VERIFY_LOGIN_SCHEMA, payload)
 
-        user_id = payload.get("user_id")
-        user = await User.get_or_none(id=user_id)
+        email = payload.get("email")
+        user = await User.get_or_none(email=email)
 
         if not user:
             raise BadRequestException(ErrorMessages.USER_NOT_FOUND)
         
         otp = payload.get("otp")
-        is_otp_valid = await OTPUtils.verify_otp(user_id, otp)
+        is_otp_valid = await OTPUtils.verify_otp(str(user.id), otp)
         if not is_otp_valid:
             raise BadRequestException(ErrorMessages.INVALID_OTP)
         
         tokens = await JWTUtils.create_token_pair(user)
-        await OTPUtils.delete_otp(user_id)
+        await OTPUtils.delete_otp(str(user.id))
 
         await UserSessions.create(
             userId=user.id,
             refreshToken=tokens['refresh_token']
         )
 
-        return tokens
+        return {
+            "accessToken": tokens['access_token'],
+            "refreshToken": tokens['refresh_token'],
+            "user": UserSerializer.from_orm(user).dict()
+        }
 
     @classmethod
     async def logout(cls, user_context: dict):
@@ -107,7 +114,7 @@ class AuthManager:
 
     @classmethod
     async def forget_password_initiate(cls, payload: dict):
-        payload = Validator.validate_schema({"email": str}, payload)
+        payload = Validator.validate_schema(FORGET_PASSWORD_INITIATE_SCHEMA, payload)
 
         email = payload.get("email")
         user = await User.get_or_none(email=email)
@@ -115,16 +122,12 @@ class AuthManager:
             raise BadRequestException(ErrorMessages.USER_NOT_FOUND)
         
         await OTPUtils.send_otp(user_id=str(user.id), email=user.email)
-        return True
+        return {"email": user.email}
     
     @classmethod
     async def forget_password_verify(cls, payload: dict):
         
-        payload = Validator.validate_schema({
-            "email": str,
-            "otp": str,
-            "new_password": str
-        }, payload)
+        payload = Validator.validate_schema(FORGET_PASSWORD_VERIFY_SCHEMA, payload)
 
         email = payload.get("email")
         otp = payload.get("otp")

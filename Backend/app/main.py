@@ -1,26 +1,30 @@
-from fastapi import FastAPI, HTTPException
-from fastapi.exceptions import RequestValidationError
-from pydantic import ValidationError
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from app.routes import api_router
 from app.core.lifespan import lifespan
-from app.exceptions.exception_handler import (
-    collab_task_exception_handler,
-    http_exception_handler,
-    validation_exception_handler,
-    pydantic_validation_exception_handler,
-    general_exception_handler,
-)
-from app.exceptions.exception import CollabTaskException
 from app.middlewares.authentication import AuthMiddleware
-from app.middlewares.rate_limiting import RateLimitingMiddleware
 from app.observability.logging import RequestIDMiddleware
-from starlette.responses import Response
 
 app = FastAPI(lifespan=lifespan)
 
-app.add_middleware(RateLimitingMiddleware)
+# IMPORTANT: Middleware is applied in REVERSE order of addition
+# Last middleware added = first to execute (outermost)
+
+# Add middlewares in order from innermost to outermost
+# AuthMiddleware - closest to routes
 app.add_middleware(AuthMiddleware)
+
+# RequestIDMiddleware - logs requests
 app.add_middleware(RequestIDMiddleware)
+
+# CORSMiddleware - must be outermost (added last)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 app.include_router(api_router)
 
@@ -29,9 +33,3 @@ app.include_router(api_router)
 async def health():
     """Health check endpoint"""
     return {"status": "healthy"}
-
-app.add_exception_handler(CollabTaskException, collab_task_exception_handler)
-app.add_exception_handler(HTTPException, http_exception_handler)
-app.add_exception_handler(RequestValidationError, validation_exception_handler)
-app.add_exception_handler(ValidationError, pydantic_validation_exception_handler)
-app.add_exception_handler(Exception, general_exception_handler)

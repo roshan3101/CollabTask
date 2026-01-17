@@ -21,7 +21,6 @@ class UserSerializer(BaseModel):
     lastName: str
     email: str
     isVerified: bool
-    is_staff: bool
     createdAt: str
     updatedAt: str
 

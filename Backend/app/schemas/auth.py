@@ -11,5 +11,13 @@ class LOGIN_SCHEMA(BaseModel):
     password: str
 
 class VERIFY_LOGIN_SCHEMA(BaseModel):
-    user_id: str
+    email: str
     otp: str
+
+class FORGET_PASSWORD_INITIATE_SCHEMA(BaseModel):
+    email: str
+
+class FORGET_PASSWORD_VERIFY_SCHEMA(BaseModel):
+    email: str
+    otp: str
+    new_password: str

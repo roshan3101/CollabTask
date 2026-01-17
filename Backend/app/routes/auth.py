@@ -25,11 +25,11 @@ async def login(request: Request):
     content = ApiResponse(success=True, message="Login successful.", data=result)
     return JSONResponse(content=content, status_code=200)
 
-@router.post('/login/verify')
+@router.post('/otp/verify')
 async def verify_login(request: Request):
     payload = await request.json()
     tokens = await AuthManager.verify_login(payload)
-    content = ApiResponse(success=True, message="Login verification successful.", data=tokens)
+    content = ApiResponse(success=True, message="OTP verification successful.", data=tokens)
     return JSONResponse(content=content, status_code=200)
 
 @router.post('/refresh')
@@ -45,14 +45,14 @@ async def logout(request: Request, user_context=Depends(require_user)):
     content = ApiResponse(success=True, message="Logout successful.")
     return JSONResponse(content=content, status_code=200)
 
-@router.post('/forget-password/initiate')
+@router.post('/forgot-password/initiate')
 async def forget_password_initiate(request: Request):
     payload = await request.json()
-    await AuthManager.forget_password_initiate(payload)
-    content = ApiResponse(success=True, message="Password reset OTP sent to email.")
+    result = await AuthManager.forget_password_initiate(payload)
+    content = ApiResponse(success=True, message="Password reset OTP sent to email.", data=result)
     return JSONResponse(content=content, status_code=200)
 
-@router.post('/forget-password/verify')
+@router.post('/forgot-password/verify')
 async def forget_password_verify(request: Request):
     payload = await request.json()
     await AuthManager.forget_password_verify(payload)

@@ -16,7 +16,7 @@ class OTPUtils:
     async def send_otp(cls, user_id: str, email: str) -> str:
         otp = cls._generate_otp()
 
-        cls.delete_otp(user_id)
+        await cls.delete_otp(user_id)
 
         await Auth.create(
             userId=user_id,
