@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
@@ -23,6 +23,8 @@ interface LoginFormProps {
 }
 
 export default function LoginForm({ onLogin, isLoading, error }: LoginFormProps) {
+  const prevIsLoadingRef = useRef(false)
+  const formSubmittedRef = useRef(false)
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -32,18 +34,26 @@ export default function LoginForm({ onLogin, isLoading, error }: LoginFormProps)
     },
   })
 
-  const onSubmit = async (values: LoginFormValues) => {
-    try {
-      await onLogin(values.email, values.password)
-      toast.success("OTP sent to your email")
-    } catch (err) {
-      toast.error(error || "Login failed")
+  useEffect(() => {
+    if (formSubmittedRef.current && !isLoading && prevIsLoadingRef.current && error) {
+      toast.error(error)
+      formSubmittedRef.current = false
     }
+
+    else if (formSubmittedRef.current && !isLoading && prevIsLoadingRef.current && !error) {
+      toast.success("OTP sent to your email")
+      formSubmittedRef.current = false
+    }
+    prevIsLoadingRef.current = isLoading
+  }, [isLoading, error])
+
+  const onSubmit = async (values: LoginFormValues) => {
+    formSubmittedRef.current = true
+    await onLogin(values.email, values.password)
   }
 
   return (
     <div className="space-y-4">
-      {error && <div className="rounded-md bg-red-50 p-3 text-sm text-red-800">{error}</div>}
 
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">

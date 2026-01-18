@@ -36,7 +36,7 @@ async function request<T>(
 
         if(!res.ok) {
             const error: ApiError = new Error(
-                data?.message || "Request failed"
+                data?.message || data?.detail || "Request failed"
             )
 
             error.status = res.status

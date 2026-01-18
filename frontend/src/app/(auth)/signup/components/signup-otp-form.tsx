@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp"
 import { Form, FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form"
@@ -21,6 +21,8 @@ interface SignupOtpFormProps {
 
 export default function SignupOtpForm({ email, onVerify, isLoading, error }: SignupOtpFormProps) {
   const [resendTimer, setResendTimer] = useState(60)
+  const prevIsLoadingRef = useRef(false)
+  const formSubmittedRef = useRef(false)
   const form = useForm<OtpFormValues>({
     resolver: zodResolver(otpSchema),
     defaultValues: { otp: "" },
@@ -32,19 +34,22 @@ export default function SignupOtpForm({ email, onVerify, isLoading, error }: Sig
     return () => clearTimeout(timer)
   }, [resendTimer])
 
-  const onSubmit = async (values: OtpFormValues) => {
-    try {
-      await onVerify(values.otp)
-      toast.success("Email verified successfully. Welcome!")
-    } catch (err) {
-      toast.error(error || "Verification failed")
+  useEffect(() => {
+    if (formSubmittedRef.current && !isLoading && prevIsLoadingRef.current && error) {
+      toast.error(error)
+      formSubmittedRef.current = false
     }
+    prevIsLoadingRef.current = isLoading
+  }, [isLoading, error])
+
+  const onSubmit = async (values: OtpFormValues) => {
+    formSubmittedRef.current = true
+    await onVerify(values.otp)
   }
 
   return (
     <div className="space-y-6">
-      {error && <div className="rounded-md bg-red-50 p-3 text-sm text-red-800">{error}</div>}
-
+      
       <div className="text-center space-y-2">
         <p className="text-sm text-muted-foreground">Verify your email address</p>
         <p className="font-medium">{email}</p>

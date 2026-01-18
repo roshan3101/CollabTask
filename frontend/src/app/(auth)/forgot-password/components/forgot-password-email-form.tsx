@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect, useRef } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
@@ -21,24 +22,33 @@ interface ForgotPasswordEmailFormProps {
 }
 
 export default function ForgotPasswordEmailForm({ onSubmit, isLoading, error }: ForgotPasswordEmailFormProps) {
+  const prevIsLoadingRef = useRef(false)
+  const formSubmittedRef = useRef(false)
+
   const form = useForm<EmailFormValues>({
     resolver: zodResolver(emailSchema),
     defaultValues: { email: "" },
   })
 
-  const handleSubmit = async (values: EmailFormValues) => {
-    try {
-      await onSubmit(values.email)
-      toast.success("OTP sent to your email")
-    } catch (err) {
-      toast.error(error || "Failed to send OTP")
+  useEffect(() => {
+    if (formSubmittedRef.current && !isLoading && prevIsLoadingRef.current && error) {
+      toast.error(error)
+      formSubmittedRef.current = false
     }
+    else if (formSubmittedRef.current && !isLoading && prevIsLoadingRef.current && !error) {
+      toast.success("OTP sent to your email")
+      formSubmittedRef.current = false
+    }
+    prevIsLoadingRef.current = isLoading
+  }, [isLoading, error])
+
+  const handleSubmit = async (values: EmailFormValues) => {
+    formSubmittedRef.current = true
+    await onSubmit(values.email)
   }
 
   return (
     <div className="space-y-4">
-      {error && <div className="rounded-md bg-red-50 p-3 text-sm text-red-800">{error}</div>}
-
       <Form {...form}>
         <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
           <FormField

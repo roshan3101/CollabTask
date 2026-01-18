@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect, useRef } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
@@ -20,6 +21,9 @@ interface SignupFormProps {
 }
 
 export default function SignupForm({ onSignup, isLoading, error }: SignupFormProps) {
+  const prevIsLoadingRef = useRef(false)
+  const formSubmittedRef = useRef(false)
+
   const form = useForm<SignupFormValues>({
     resolver: zodResolver(signupSchema),
     defaultValues: {
@@ -31,19 +35,26 @@ export default function SignupForm({ onSignup, isLoading, error }: SignupFormPro
     },
   })
 
-  const onSubmit = async (values: SignupFormValues) => {
-    try {
-      await onSignup(values)
-      toast.success("Account created successfully. Please check your email for verification.")
-    } catch (err) {
-      toast.error(error || "Signup failed")
+  useEffect(() => {
+    if (formSubmittedRef.current && !isLoading && prevIsLoadingRef.current && error) {
+      toast.error(error)
+      formSubmittedRef.current = false
     }
+    else if (formSubmittedRef.current && !isLoading && prevIsLoadingRef.current && !error) {
+      toast.success("Account created successfully. Please check your email for verification.")
+      formSubmittedRef.current = false
+    }
+    prevIsLoadingRef.current = isLoading
+  }, [isLoading, error])
+
+  const onSubmit = async (values: SignupFormValues) => {
+    formSubmittedRef.current = true
+    await onSignup(values)
   }
 
   return (
     <div className="space-y-4">
-      {error && <div className="rounded-md bg-red-50 p-3 text-sm text-red-800">{error}</div>}
-
+      
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
           <FormField

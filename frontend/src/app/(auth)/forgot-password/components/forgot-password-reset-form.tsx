@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect, useRef } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
@@ -33,6 +34,9 @@ export default function ForgotPasswordResetForm({
   isLoading,
   error,
 }: ForgotPasswordResetFormProps) {
+  const prevIsLoadingRef = useRef(false)
+  const formSubmittedRef = useRef(false)
+
   const form = useForm<ResetFormValues>({
     resolver: zodResolver(resetSchema),
     defaultValues: {
@@ -41,19 +45,25 @@ export default function ForgotPasswordResetForm({
     },
   })
 
-  const onSubmit = async (values: ResetFormValues) => {
-    try {
-      await onResetPassword(values.newPassword)
-      toast.success("Password reset successfully")
-    } catch (err) {
-      toast.error(error || "Password reset failed")
+  useEffect(() => {
+    if (formSubmittedRef.current && !isLoading && prevIsLoadingRef.current && error) {
+      toast.error(error)
+      formSubmittedRef.current = false
     }
+    else if (formSubmittedRef.current && !isLoading && prevIsLoadingRef.current && !error) {
+      toast.success("Password reset successfully")
+      formSubmittedRef.current = false
+    }
+    prevIsLoadingRef.current = isLoading
+  }, [isLoading, error])
+
+  const onSubmit = async (values: ResetFormValues) => {
+    formSubmittedRef.current = true
+    await onResetPassword(values.newPassword)
   }
 
   return (
     <div className="space-y-4">
-      {error && <div className="rounded-md bg-red-50 p-3 text-sm text-red-800">{error}</div>}
-
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
           <FormField
