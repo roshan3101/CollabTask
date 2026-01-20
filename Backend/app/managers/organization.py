@@ -3,6 +3,7 @@ from app.models.membership import MembershipRole, MembershipStatus
 from app.exceptions import BadRequestException
 from app.schemas.organization import CREATE_ORGANIZATION_SCHEMA, UPDATE_ORGANIZATION_SCHEMA, OrganizationSerializer
 from tortoise.transactions import in_transaction
+from tortoise import connections
 
 class OrganizationManager:
 
@@ -49,7 +50,11 @@ class OrganizationManager:
                 if existing_org and str(existing_org.id) != org_id:
                     raise BadRequestException("Organization with this name already exists.")
 
-            await org.update(**update_data).apply()
+            org.name = update_data['name']
+            org.address = update_data['address']
+            org.website = update_data['website']
+            org.description = update_data['description']
+            await org.save()
 
         return OrganizationSerializer.from_orm(org).dict()
 
@@ -68,27 +73,28 @@ class OrganizationManager:
     @classmethod
     async def get_user_organizations(cls, user_id: str):
 
-        memberships = await Membership.raw(
+        conn = connections.get("default")
+        rows = await conn.execute_query_dict(
             """
-            SELECT m.*, o.name, o.address, o.website, o.description, o."createdAt", o."updatedAt"
+            SELECT m."organizationId" as id, m.role, o.name, o.address, o.website, o.description, o."createdAt", o."updatedAt"
             FROM memberships m
             JOIN organizations o ON m."organizationId" = o.id
             WHERE m."userId" = $1 AND m.status = $2
             """,
-            user_id, MembershipStatus.ACTIVE
+            [user_id, MembershipStatus.ACTIVE]
         )
 
         organizations = []
-        for membership in memberships:
+        for row in rows:
             org_data = {
-                'id': str(membership.organizationId),
-                'name': membership.name,
-                'address': membership.address,
-                'website': membership.website,
-                'description': membership.description,
-                'createdAt': membership.createdAt.isoformat() if membership.createdAt else None,
-                'updatedAt': membership.updatedAt.isoformat() if membership.updatedAt else None,
-                'role': membership.role
+                'id': str(row['id']),
+                'role': row['role'],
+                'name': row['name'],
+                'address': row['address'],
+                'website': row['website'],
+                'description': row['description'],
+                'createdAt': row['createdAt'].isoformat() if row['createdAt'] else None,
+                'updatedAt': row['updatedAt'].isoformat() if row['updatedAt'] else None,
             }
             organizations.append(org_data)
 
@@ -97,24 +103,25 @@ class OrganizationManager:
     @classmethod
     async def get_organization_members(cls, org_id: str):
 
-        memberships = await Membership.raw(
+        conn = connections.get("default")
+        rows = await conn.execute_query_dict(
             """
-            SELECT m.*, u."firstName", u."lastName", u.email, u."isVerified"
+            SELECT m."userId" as id, m.role, u."firstName", u."lastName", u.email, u."isVerified"
             FROM memberships m
             JOIN users u ON m."userId" = u.id
             WHERE m."organizationId" = $1 AND m.status = $2
             """,
-            org_id, MembershipStatus.ACTIVE
+            [org_id, MembershipStatus.ACTIVE]
         )
 
         members = []
-        for membership in memberships:
+        for row in rows:
             member_data = {
-                'id': str(membership.userId),
-                'firstName': membership.firstName,
-                'lastName': membership.lastName,
-                'email': membership.email,
-                'role': membership.role
+                'id': str(row['id']),
+                'role': row['role'],
+                'firstName': row['firstName'],
+                'lastName': row['lastName'],
+                'email': row['email'],
             }
             members.append(member_data)
 

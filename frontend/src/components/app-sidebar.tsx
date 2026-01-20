@@ -1,10 +1,10 @@
 "use client"
 
 import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarMenuSub, SidebarMenuSubButton, SidebarMenuSubItem } from "./ui/sidebar";
-import { CalendarCheck, ChevronRight, InboxIcon, LayoutDashboardIcon, LayoutGrid, ListTodoIcon, LogOutIcon, OrbitIcon } from "lucide-react";
+import { CalendarCheck, ChevronRight, InboxIcon, LayoutDashboardIcon, LayoutGrid, ListTodoIcon, LogOutIcon, OrbitIcon, SettingsIcon, Plus, FolderKanban } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "./ui/collapsible";
 import { useAppDispatch, useAppSelector } from "@/stores/hooks";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { fetchOrganizations } from "@/stores/slices/common.slice";
 import { logout } from "@/stores/slices/auth.slice";
@@ -17,6 +17,7 @@ export function AppSidebar() {
     const router = useRouter();
     const { error, isLoading, organizations } = useAppSelector((state) => state.common);
     const hasFetchedRef = useRef(false);
+    const [isProjectsOpen, setIsProjectsOpen] = useState(false);
 
     const handleLogout = async () => {
         try {
@@ -68,7 +69,7 @@ export function AppSidebar() {
                 <SidebarMenu>
                     <SidebarMenuItem key="Dashboard">
                     <SidebarMenuButton asChild>
-                        <a href={'/'}>
+                        <a href={'/dashboard'}>
                             <LayoutDashboardIcon />
                             <span>Dashboard</span>
                         </a>
@@ -116,7 +117,20 @@ export function AppSidebar() {
 
 
                 <SidebarGroup>
-                    <SidebarGroupLabel>Organizations</SidebarGroupLabel>
+                    <SidebarGroupLabel>
+                        <div className="flex items-center gap-2 w-full">
+                            <OrbitIcon className="w-4 h-4" />
+                            <span>Organizations</span>
+                            <button
+                                type="button"
+                                onClick={() => router.push("/organizations/new")}
+                                className="inline-flex items-center justify-center rounded-md p-1 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors ml-auto"
+                                aria-label="Create organization"
+                            >
+                                <Plus className="w-4 h-4" />
+                            </button>
+                        </div>
+                    </SidebarGroupLabel>
 
                     <SidebarGroupContent>
                         <SidebarMenu>
@@ -128,35 +142,79 @@ export function AppSidebar() {
                                     </SidebarMenuButton>
                                 </SidebarMenuItem>
                             )}
-                        {organizations.length > 0 && organizations.map((org) => (
-                            <Collapsible key={org.id} className="group/collapsible">
-                            <SidebarMenuItem>
-                                <CollapsibleTrigger asChild>
-                                <SidebarMenuButton>
-                                    <OrbitIcon />
-                                    <span>{org.name}</span>
-                                    <ChevronRight className="ml-auto transition-transform group-data-[state=open]/collapsible:rotate-90" />
-                                </SidebarMenuButton>
-                                </CollapsibleTrigger>
-                            </SidebarMenuItem>
-
-                            <CollapsibleContent>
-                                <SidebarMenuSub>
-                                {org.projects?.map((project) => (
-                                    <SidebarMenuSubItem key={project.id}>
-                                        <SidebarMenuSubButton asChild>
-                                            <a href={`/projects/${project.id}`}>
-                                                <span>{project.name}</span>
-                                            </a>
-                                        </SidebarMenuSubButton>
-                                    </SidebarMenuSubItem>
-                                )) || []}
-                                </SidebarMenuSub>
-                            </CollapsibleContent>
-                            </Collapsible>
-                        ))}
+                            {organizations.length > 0 && organizations.map((org) => (
+                                <SidebarMenuItem key={org.id}>
+                                    <SidebarMenuButton asChild>
+                                        <a href={`/organizations/${org.id}`}>
+                                            <OrbitIcon />
+                                            <span>{org.name}</span>
+                                        </a>
+                                    </SidebarMenuButton>
+                                </SidebarMenuItem>
+                            ))}
                         </SidebarMenu>
                     </SidebarGroupContent>
+                </SidebarGroup>
+
+                <SidebarGroup>
+                    <Collapsible open={isProjectsOpen} onOpenChange={setIsProjectsOpen}>
+                        <SidebarGroupLabel>
+                            <CollapsibleTrigger asChild>
+                                <button
+                                    type="button"
+                                    className="flex items-center gap-2 w-full text-left hover:text-foreground transition-colors"
+                                >
+                                    <FolderKanban className="w-4 h-4" />
+                                    <span>Projects</span>
+                                    <ChevronRight className={`w-4 h-4 ml-auto transition-transform ${isProjectsOpen ? 'rotate-90' : ''}`} />
+                                </button>
+                            </CollapsibleTrigger>
+                        </SidebarGroupLabel>
+                        <CollapsibleContent>
+                            <SidebarGroupContent>
+                                <SidebarMenu>
+                                    {organizations.length === 0 && (
+                                        <SidebarMenuItem>
+                                            <SidebarMenuButton disabled>
+                                                <span>No Projects</span>
+                                            </SidebarMenuButton>
+                                        </SidebarMenuItem>
+                                    )}
+                                    {organizations.map((org) => {
+                                        const orgProjects = org.projects || [];
+                                        if (orgProjects.length === 0) return null;
+                                        
+                                        return (
+                                            <Collapsible key={org.id} className="group/collapsible">
+                                                <SidebarMenuItem>
+                                                    <CollapsibleTrigger asChild>
+                                                        <SidebarMenuButton>
+                                                            <OrbitIcon />
+                                                            <span>{org.name}</span>
+                                                            <ChevronRight className="ml-auto transition-transform group-data-[state=open]/collapsible:rotate-90" />
+                                                        </SidebarMenuButton>
+                                                    </CollapsibleTrigger>
+                                                </SidebarMenuItem>
+                                                <CollapsibleContent>
+                                                    <SidebarMenuSub>
+                                                        {orgProjects.map((project) => (
+                                                            <SidebarMenuSubItem key={project.id}>
+                                                                <SidebarMenuSubButton asChild>
+                                                                    <a href={`/projects/${project.id}`}>
+                                                                        <span>{project.name}</span>
+                                                                    </a>
+                                                                </SidebarMenuSubButton>
+                                                            </SidebarMenuSubItem>
+                                                        ))}
+                                                    </SidebarMenuSub>
+                                                </CollapsibleContent>
+                                            </Collapsible>
+                                        );
+                                    })}
+                                </SidebarMenu>
+                            </SidebarGroupContent>
+                        </CollapsibleContent>
+                    </Collapsible>
                 </SidebarGroup>
 
             </SidebarContent>
@@ -178,7 +236,7 @@ export function AppSidebar() {
                             <SidebarMenuItem key="settings">
                                 <SidebarMenuButton asChild>
                                     <a href={'/settings'}>
-                                        <OrbitIcon />
+                                        <SettingsIcon />
                                         <span>Settings</span>
                                     </a>
                                 </SidebarMenuButton>

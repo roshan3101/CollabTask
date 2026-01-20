@@ -53,6 +53,15 @@ export const storageUtils = {
     }
   },
 
+  clearAuthAndRedirectToLogin: () => {
+    if (typeof window !== "undefined") {
+      localStorage.removeItem(ACCESS_TOKEN_KEY)
+      localStorage.removeItem(REFRESH_TOKEN_KEY)
+      localStorage.removeItem(USER_KEY)
+      window.location.href = "/login"
+    }
+  },
+
   // Check if user is authenticated
   isAuthenticated: () => {
     if (typeof window !== "undefined") {

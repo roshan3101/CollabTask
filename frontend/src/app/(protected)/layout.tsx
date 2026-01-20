@@ -1,4 +1,6 @@
 import { AppSidebar } from "@/components/app-sidebar";
+import Topbar from "@/components/topbar";
+import { Separator } from "@/components/ui/separator";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import React from "react";
 
@@ -19,7 +21,8 @@ export default function ProtectedLayout({
             <SidebarProvider>
                 <AppSidebar />
                 <main className="w-full m-2">
-                    <SidebarTrigger />
+                    <Topbar />
+                    <Separator className="my-2" />
                     {children}
                 </main>
             </SidebarProvider>

@@ -13,7 +13,7 @@ router = APIRouter(
 @router.post('/')
 async def create_organization(request: Request, user=Depends(require_user)):
     payload = await request.json()
-    result = await OrganizationManager.create_organization(payload, str(user.id))
+    result = await OrganizationManager.create_organization(payload, str(user.get('user_id')))
     content = ApiResponse(
         success=True,
         message="Organization created successfully",
@@ -24,7 +24,7 @@ async def create_organization(request: Request, user=Depends(require_user)):
 @router.get('/')
 async def get_user_organizations(request: Request, user=Depends(require_user)):
 
-    organizations = await OrganizationManager.get_user_organizations(str(user.id))
+    organizations = await OrganizationManager.get_user_organizations(str(user.get('user_id')))
     content = ApiResponse(
         success=True,
         message="Organizations retrieved successfully",
@@ -181,7 +181,7 @@ async def leave_organization(
     role=Depends(require_role(["member", "admin", "owner"]))
 ):
 
-    user_id = str(request.state.user.id)
+    user_id = str(request.state.user.get('user_id'))
     result = await OrganizationManager.remove_member(org_id, user_id)
     content = ApiResponse(
         success=True,

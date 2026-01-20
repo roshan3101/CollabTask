@@ -18,7 +18,7 @@ def require_org_membership():
             raise NotFoundException("Organization not found")
 
         membership = await Membership.get_or_none(
-            userId=user.id,
+            userId=user.get('user_id'),
             organizationId=org_id,
             status="active"
         )
@@ -62,7 +62,7 @@ def project_access():
             raise NotFoundException("This project has been archived and is no longer accessible")
 
         membership = await Membership.get_or_none(
-            userId=user.id,
+            userId=user.get('user_id'),
             organizationId=project.org.id,
             status="active"
         )

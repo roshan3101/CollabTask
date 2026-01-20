@@ -17,6 +17,7 @@ async function refreshAccessToken(): Promise<string | null> {
   const refreshToken = storageUtils.getRefreshToken()
 
   if (!currentAccessToken || !refreshToken) {
+    storageUtils.clearAuthAndRedirectToLogin()
     return null
   }
 
@@ -39,29 +40,40 @@ async function refreshAccessToken(): Promise<string | null> {
 
       const data = await res.json().catch(() => null)
 
-      if (!res.ok || !data?.data) {
+      if (!res.ok || !data?.success || !data?.data) {
+        storageUtils.clearAuthAndRedirectToLogin()
         throw new Error(data?.message || data?.detail || "Failed to refresh token")
       }
 
-      const newAccessToken: string | undefined =
-        data.data.accessToken || data.data.access_token
-      const newRefreshToken: string | undefined =
-        data.data.refreshToken || data.data.refresh_token
+      // Backend returns snake_case: access_token and refresh_token
+      const newAccessToken: string | undefined = data.data.access_token
+      const newRefreshToken: string | undefined = data.data.refresh_token
 
-      if (newAccessToken) {
-        storageUtils.setAccessToken(newAccessToken)
+      if (!newAccessToken || !newRefreshToken) {
+        storageUtils.clearAuthAndRedirectToLogin()
+        throw new Error("Invalid token response from server")
       }
-      if (newRefreshToken) {
-        storageUtils.setRefreshToken(newRefreshToken)
-      }
+
+      // Update stored tokens
+      storageUtils.setAccessToken(newAccessToken)
+      storageUtils.setRefreshToken(newRefreshToken)
+    } catch (error) {
+      // On any error, clear auth and redirect to login to prevent retry loops
+      storageUtils.clearAuthAndRedirectToLogin()
+      throw error
     } finally {
       isRefreshing = false
       refreshPromise = null
     }
   })()
 
-  await refreshPromise
-  return storageUtils.getAccessToken()
+  try {
+    await refreshPromise
+    return storageUtils.getAccessToken()
+  } catch {
+    // Refresh failed, return null
+    return null
+  }
 }
 
 async function doFetch<T>(
@@ -87,6 +99,22 @@ async function doFetch<T>(
   return { res, data }
 }
 
+function isSessionExpiredError(data: any): boolean {
+  if (!data) return false
+  
+  const message = (data as any)?.message || (data as any)?.detail || ""
+  const messageLower = message.toLowerCase()
+  
+  return (
+    messageLower.includes("session expired") ||
+    messageLower.includes("token has expired") ||
+    messageLower.includes("token expired") ||
+    messageLower.includes("authentication required") ||
+    messageLower.includes("invalid token") ||
+    messageLower.includes("token invalid")
+  )
+}
+
 async function request<T>(
   method: HttpMethod,
   url: string,
@@ -96,35 +124,56 @@ async function request<T>(
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), 30000)
 
+  const maxRetries = 3
+  let retryCount = 0
+  let currentToken = token
+
   try {
-    // First attempt
-    let { res, data } = await doFetch<T>(method, url, body, token, controller.signal)
+    while (retryCount <= maxRetries) {
+      // Attempt request
+      let { res, data } = await doFetch<T>(method, url, body, currentToken, controller.signal)
 
-    // Try automatic refresh on 401 (only when not using an explicit token override)
-    if (res.status === 401 && !token) {
-      const newToken = await refreshAccessToken()
+      // Check if it's a 401 with session expired error
+      // Skip refresh for auth endpoints to prevent infinite loops
+      if (
+        res.status === 401 &&
+        !token &&
+        !url.startsWith('/auth/') &&
+        isSessionExpiredError(data) &&
+        retryCount < maxRetries
+      ) {
+        retryCount++
+        const newToken = await refreshAccessToken()
 
-      if (newToken) {
-        ;({ res, data } = await doFetch<T>(
-          method,
-          url,
-          body,
-          newToken,
-          controller.signal
-        ))
+        if (newToken) {
+          // Retry with new token
+          currentToken = newToken
+          continue
+        } else {
+          // Refresh failed - tokens already cleared & redirect triggered
+          const error: ApiError = new Error("Session expired. Please login again.")
+          error.status = 401
+          error.data = data
+          throw error
+        }
       }
+
+      if (!res.ok) {
+        const error: ApiError = new Error(
+          (data as any)?.message || (data as any)?.detail || "Request failed"
+        )
+        error.status = res.status
+        error.data = data
+        throw error
+      }
+
+      return data as T
     }
 
-    if (!res.ok) {
-      const error: ApiError = new Error(
-        (data as any)?.message || (data as any)?.detail || "Request failed"
-      )
-      error.status = res.status
-      error.data = data
-      throw error
-    }
-
-    return data as T
+    // If we've exhausted retries, throw an error
+    const error: ApiError = new Error("Session expired. Please login again.")
+    error.status = 401
+    throw error
   } finally {
     clearTimeout(timeout)
   }
