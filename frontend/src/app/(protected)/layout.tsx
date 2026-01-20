@@ -1,3 +1,5 @@
+import { AppSidebar } from "@/components/app-sidebar";
+import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import React from "react";
 
 export default function ProtectedLayout({
@@ -13,8 +15,14 @@ export default function ProtectedLayout({
     }
 
     return (
-        <div className="min-h-screen">
-            {children}
+        <div className="flex min-h-screen">
+            <SidebarProvider>
+                <AppSidebar />
+                <main className="w-full m-2">
+                    <SidebarTrigger />
+                    {children}
+                </main>
+            </SidebarProvider>
         </div>
     )
 }

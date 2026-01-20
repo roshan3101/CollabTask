@@ -1,4 +1,5 @@
 import { apiClient } from "./apiClient"
+import { storageUtils } from "@/lib/storage"
 
 export interface SignupRequest {
   firstName: string
@@ -167,6 +168,15 @@ class AuthService {
       )
       return data
     } catch (error) {
+      const apiError = error as any
+      if (apiError?.status === 401) {
+        storageUtils.clearAuth()
+        return {
+          success: true,
+          message: "Already logged out",
+        }
+      }
+
       return {
         success: false,
         message: "logout failed",
