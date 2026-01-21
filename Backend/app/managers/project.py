@@ -7,7 +7,7 @@ from tortoise.transactions import in_transaction
 class ProjectManager:
 
     @classmethod
-    async def create(cls, payload: dict, user, organization):
+    async def create(cls, payload: dict, user_id: str, organization):
         validated_data = CREATE_PROJECT_SCHEMA(**payload)
 
         existing_project = await Project.get_or_none(
@@ -22,7 +22,7 @@ class ProjectManager:
             name=validated_data.name,
             description=validated_data.description,
             org_id=organization.organizationId,
-            created_by_id=user.id
+            created_by_id=user_id
         )
 
         return ProjectSerializer.from_orm(project).dict()
@@ -48,6 +48,10 @@ class ProjectManager:
         return ProjectSerializer.from_orm(project).dict()
 
     @classmethod
+    def get_project_from_orm(cls, project):
+        return ProjectSerializer.from_orm(project).dict()
+
+    @classmethod
     async def update_project(cls, payload: dict, project):
         validated_data = UPDATE_PROJECT_SCHEMA(**payload)
 
@@ -63,16 +67,19 @@ class ProjectManager:
                 if existing_project and str(existing_project.id) != str(project.id):
                     raise BadRequestException("Project with this name already exists in the organization.")
 
-            await project.update(**update_data).apply()
+            for key, value in update_data.items():
+                setattr(project, key, value)
+            await project.save()
 
         return ProjectSerializer.from_orm(project).dict()
 
     @classmethod
-    async def delete_project(cls, project, role: str):
+    async def delete_project(cls, project, role: str, user_id: str):
 
-        if (role not in ["admin", "owner"] and
-            str(project.created_by_id) != str(project.org.created_by_id)):
-            raise BadRequestException("You don't have permission to delete this project.")
+        if role not in ["admin", "owner"]:
+
+            if str(project.created_by_id) != str(user_id):
+                raise BadRequestException("You don't have permission to delete this project.")
 
         project.is_archieved = True
         await project.save()

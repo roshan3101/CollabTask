@@ -7,7 +7,6 @@ import {
   fetchOrganizationDetail,
 } from "@/stores/slices/organization.slice"
 import { OrganizationHeader } from "./components/organization-header"
-import { ProjectsSection } from "./components/projects-section"
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -78,10 +77,11 @@ export default function OrganizationDetailPage() {
         organization={activeOrganization}
         onSettingsClick={() => router.push(`/organizations/${orgId}/settings`)}
         onMembersClick={() => router.push(`/organizations/${orgId}/members`)}
+        onProjectsClick={() => router.push(`/organizations/${orgId}/projects`)}
       />
 
       <div className="grid gap-6 md:grid-cols-2">
-        <ProjectsSection organization={activeOrganization} orgId={orgId} />
+        
       </div>
     </div>
   )

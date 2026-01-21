@@ -20,7 +20,7 @@ export default function ProtectedLayout({
         <div className="flex min-h-screen">
             <SidebarProvider>
                 <AppSidebar />
-                <main className="w-full m-2">
+                <main className="w-full m-2 overflow-x-hidden flex flex-col">
                     <Topbar />
                     <Separator className="my-2" />
                     {children}

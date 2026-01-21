@@ -5,4 +5,5 @@ from .organization import Organization
 from .membership import Membership
 from .project import Project
 from .task import Task
+from .task_assignee import TaskAssignee
 from .activity import Activity

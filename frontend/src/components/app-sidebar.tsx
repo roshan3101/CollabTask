@@ -120,7 +120,7 @@ export function AppSidebar() {
                     <SidebarGroupLabel>
                         <div className="flex items-center gap-2 w-full">
                             <OrbitIcon className="w-4 h-4" />
-                            <span>Organizations</span>
+                            <button onClick={() => router.push("/organizations")}>Organizations</button>
                             <button
                                 type="button"
                                 onClick={() => router.push("/organizations/new")}
@@ -200,7 +200,7 @@ export function AppSidebar() {
                                                         {orgProjects.map((project) => (
                                                             <SidebarMenuSubItem key={project.id}>
                                                                 <SidebarMenuSubButton asChild>
-                                                                    <a href={`/projects/${project.id}`}>
+                                                                    <a href={`/organizations/${org.id}/projects/${project.id}`}>
                                                                         <span>{project.name}</span>
                                                                     </a>
                                                                 </SidebarMenuSubButton>

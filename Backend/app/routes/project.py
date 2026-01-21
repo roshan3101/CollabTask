@@ -17,7 +17,7 @@ async def create_project(
     membership=Depends(require_org_membership())
 ):
     payload = await request.json()
-    result = await ProjectManager.create(payload, user, membership)
+    result = await ProjectManager.create(payload, user.get('user_id'), membership)
     content = ApiResponse(success=True, message="Project created successfully", data=result)
     return JSONResponse(content=content, status_code=201)
 
@@ -52,7 +52,8 @@ async def get_project(
     request: Request,
     project=Depends(project_access())
 ):
-    result = await ProjectManager.get_project(project_id)
+    # project_access() already fetched and validated the project
+    result = ProjectManager.get_project_from_orm(project)
     content = ApiResponse(success=True, message="Project retrieved successfully", data=result)
     return JSONResponse(content=content, status_code=200)
 
@@ -73,14 +74,12 @@ async def delete_project(
     org_id: str,
     project_id: str,
     request: Request,
+    user=Depends(require_user),
     membership=Depends(require_org_membership()),
-    role=Depends(require_role(["admin", "owner"])),
+    role=Depends(require_role(["member", "admin", "owner"])),
     project=Depends(project_access())
 ):
-    """
-    Archive a project - admin/owner or project creator only
-    """
-    result = await ProjectManager.delete_project(project, role)
+    result = await ProjectManager.delete_project(project, role, user.get('user_id'))
     content = ApiResponse(success=True, message=result["message"])
     return JSONResponse(content=content, status_code=200)
 

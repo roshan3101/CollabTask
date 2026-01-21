@@ -1,4 +1,4 @@
-from app.models import Task, Project, User, Membership
+from app.models import Task, Project, User, Membership, TaskAssignee
 from app.models.membership import MembershipRole
 from app.exceptions import (
     BadRequestException, NotFoundException, ConflictException, ForbiddenException
@@ -37,29 +37,28 @@ class TaskManager:
         if project.is_archieved:
             raise NotFoundException(ErrorMessages.PROJECT_ARCHIVED)
 
-        if validated_data.assignee_id:
-            assignee_id = Validator.validate_uuid(validated_data.assignee_id, "assignee_id")
-            assignee = await User.get_or_none(id=assignee_id)
-            if not assignee:
-                raise NotFoundException(ErrorMessages.ASSIGNEE_NOT_FOUND)
-        else:
-            assignee = None
-
         task = await Task.create(
             title=validated_data.title,
             description=validated_data.description,
             status=validated_data.status,
-            assignee=assignee,
             project=project,
             created_by_id=user_id
         )
+
+        if validated_data.assignee_ids:
+            for assignee_id_str in validated_data.assignee_ids:
+                assignee_id = Validator.validate_uuid(assignee_id_str, "assignee_id")
+                assignee = await User.get_or_none(id=assignee_id)
+                if not assignee:
+                    raise NotFoundException(ErrorMessages.ASSIGNEE_NOT_FOUND)
+                await TaskAssignee.create(task=task, user=assignee)
 
         # Log activity
         task_data = {
             'title': validated_data.title,
             'description': validated_data.description,
             'status': validated_data.status,
-            'assignee_id': str(validated_data.assignee_id) if validated_data.assignee_id else None
+            'assignee_ids': validated_data.assignee_ids
         }
         await ActivityManager.log_task_created(
             str(task.id),
@@ -69,13 +68,14 @@ class TaskManager:
             task_data
         )
 
-        return TaskSerializer.from_orm(task).dict()
+        result = await TaskSerializer.from_orm(task)
+        return result.dict()
 
     @classmethod
     async def get_task(cls, task_id: str, project_id: Optional[str] = None):
         task_id = Validator.validate_uuid(task_id, "task_id")
         
-        task = await Task.get_or_none(id=task_id).select_related('project', 'assignee', 'created_by')
+        task = await Task.get_or_none(id=task_id).select_related('project', 'created_by')
         if not task:
             raise NotFoundException(ErrorMessages.TASK_NOT_FOUND)
 
@@ -88,7 +88,8 @@ class TaskManager:
             if task.project.is_archieved:
                 raise NotFoundException(ErrorMessages.PROJECT_ARCHIVED)
 
-        return TaskDetailSerializer.from_orm(task).dict()
+        result = await TaskDetailSerializer.from_orm(task)
+        return result.dict()
 
     @classmethod
     async def update_task(cls, task_id: str, payload: dict, user_id: str, project_id: Optional[str] = None):
@@ -118,27 +119,32 @@ class TaskManager:
         if task.version != validated_data.version:
             raise ConflictException(ErrorMessages.TASK_VERSION_MISMATCH)
 
-        if validated_data.assignee_id:
-            assignee_id = Validator.validate_uuid(validated_data.assignee_id, "assignee_id")
-            assignee = await User.get_or_none(id=assignee_id)
-            if not assignee:
-                raise NotFoundException(ErrorMessages.ASSIGNEE_NOT_FOUND)
-        else:
-            assignee = None
+        update_data = validated_data.dict(exclude_unset=True, exclude={'version', 'assignee_ids'})
+        
+        # Handle assignee_ids separately
+        if 'assignee_ids' in validated_data.dict(exclude_unset=True):
+            # Remove existing assignees
+            await TaskAssignee.filter(task_id=task_id).delete()
+            
+            # Add new assignees
+            if validated_data.assignee_ids:
+                for assignee_id_str in validated_data.assignee_ids:
+                    assignee_id = Validator.validate_uuid(assignee_id_str, "assignee_id")
+                    assignee = await User.get_or_none(id=assignee_id)
+                    if not assignee:
+                        raise NotFoundException(ErrorMessages.ASSIGNEE_NOT_FOUND)
+                    await TaskAssignee.create(task=task, user=assignee)
 
-        update_data = validated_data.dict(exclude_unset=True, exclude={'version'})
         if update_data:
             # Store old values for activity logging
             old_title = task.title
             old_description = task.description
-            old_assignee_id = str(task.assignee_id) if task.assignee_id else None
-
-            if 'assignee_id' in update_data:
-                update_data['assignee'] = assignee
 
             update_data['version'] = task.version + 1
 
-            await task.update(**update_data).apply()
+            for key, value in update_data.items():
+                setattr(task, key, value)
+            await task.save()
 
             # Log activities for changes
             org_id = str(task.project.org_id)
@@ -153,15 +159,8 @@ class TaskManager:
                     task_id, org_id, user_id, old_description or '', update_data['description'] or ''
                 )
 
-            if 'assignee' in update_data:
-                new_assignee_id = str(update_data['assignee'].id) if update_data['assignee'] else None
-                if new_assignee_id != old_assignee_id:
-                    if new_assignee_id:
-                        await ActivityManager.log_task_assigned(task_id, org_id, user_id, new_assignee_id)
-                    elif old_assignee_id:
-                        await ActivityManager.log_task_unassigned(task_id, org_id, user_id, old_assignee_id)
-
-        return TaskSerializer.from_orm(task).dict()
+        result = await TaskSerializer.from_orm(task)
+        return result.dict()
 
     @classmethod
     async def assign_task(cls, task_id: str, payload: dict, user_id: str, project_id: Optional[str] = None):
@@ -185,30 +184,26 @@ class TaskManager:
         if task.version != validated_data.version:
             raise ConflictException(ErrorMessages.TASK_VERSION_MISMATCH)
 
-        old_assignee_id = str(task.assignee_id) if task.assignee_id else None
+        # Remove existing assignees
+        await TaskAssignee.filter(task_id=task_id).delete()
+        
+        # Add new assignees
+        if validated_data.assignee_ids:
+            for assignee_id_str in validated_data.assignee_ids:
+                assignee_id = Validator.validate_uuid(assignee_id_str, "assignee_id")
+                assignee = await User.get_or_none(id=assignee_id)
+                if not assignee:
+                    raise NotFoundException(ErrorMessages.ASSIGNEE_NOT_FOUND)
+                await TaskAssignee.create(task=task, user=assignee)
+                # Log activity for each assignment
+                org_id = str(task.project.org_id)
+                await ActivityManager.log_task_assigned(task_id, org_id, user_id, str(assignee_id))
 
-        if validated_data.assignee_id:
-            assignee_id = Validator.validate_uuid(validated_data.assignee_id, "assignee_id")
-            assignee = await User.get_or_none(id=assignee_id)
-            if not assignee:
-                raise NotFoundException(ErrorMessages.ASSIGNEE_NOT_FOUND)
-        else:
-            assignee = None
-
-        task.assignee = assignee
         task.version = task.version + 1
         await task.save()
 
-        # Log activity
-        org_id = str(task.project.org_id)
-        new_assignee_id = str(assignee.id) if assignee else None
-
-        if new_assignee_id and new_assignee_id != old_assignee_id:
-            await ActivityManager.log_task_assigned(task_id, org_id, user_id, new_assignee_id)
-        elif not new_assignee_id and old_assignee_id:
-            await ActivityManager.log_task_unassigned(task_id, org_id, user_id, old_assignee_id)
-
-        return TaskSerializer.from_orm(task).dict()
+        result = await TaskSerializer.from_orm(task)
+        return result.dict()
 
     @classmethod
     async def change_task_status(cls, task_id: str, payload: dict, user_id: str, project_id: Optional[str] = None):
@@ -246,7 +241,8 @@ class TaskManager:
         if old_status != validated_data.status:
             await ActivityManager.log_task_status_changed(task_id, org_id, user_id, old_status, validated_data.status)
 
-        return TaskSerializer.from_orm(task).dict()
+        result = await TaskSerializer.from_orm(task)
+        return result.dict()
 
     @classmethod
     async def list_tasks_by_project(
@@ -302,7 +298,8 @@ class TaskManager:
             query = query.filter(status=status)
         
         if assignee_id:
-            query = query.filter(assignee_id=assignee_id)
+            # Filter by assignee using TaskAssignee join
+            query = query.filter(assignees__user_id=assignee_id)
 
         # Get total count for pagination
         total = await query.count()
@@ -313,10 +310,13 @@ class TaskManager:
 
         # Apply pagination
         skip = (page - 1) * page_size
-        tasks = await query.select_related('assignee').offset(skip).limit(page_size).all()
+        tasks = await query.offset(skip).limit(page_size).all()
 
         # Convert to list serializers (lighter payload)
-        items = [TaskListSerializer.from_orm(task).dict() for task in tasks]
+        items = []
+        for task in tasks:
+            serializer = await TaskListSerializer.from_orm(task)
+            items.append(serializer.dict())
 
         # Calculate total pages
         total_pages = ceil(total / page_size) if total > 0 else 0

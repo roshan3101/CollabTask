@@ -7,17 +7,17 @@ class CREATE_TASK_SCHEMA(BaseModel):
     title: str
     description: str | None = None
     status: str = "todo"
-    assignee_id: str | None = None
+    assignee_ids: List[str] = Field(default_factory=list)
 
 class UPDATE_TASK_SCHEMA(BaseModel):
     title: str | None = None
     description: str | None = None
     status: str | None = None
-    assignee_id: str | None = None
+    assignee_ids: List[str] | None = None
     version: int  # Required for optimistic locking
 
 class ASSIGN_TASK_SCHEMA(BaseModel):
-    assignee_id: str | None
+    assignee_ids: List[str] = Field(default_factory=list)
     version: int
 
 class CHANGE_STATUS_SCHEMA(BaseModel):
@@ -29,8 +29,8 @@ class TaskListSerializer(BaseModel):
     id: str
     title: str
     status: str
-    assignee_id: str | None
-    assignee_name: str | None = None  # For convenience in lists
+    assignee_ids: List[str] = Field(default_factory=list)
+    assignee_names: List[str] = Field(default_factory=list)
     project_id: str
     version: int
     createdAt: str
@@ -40,17 +40,23 @@ class TaskListSerializer(BaseModel):
         from_attributes = True
 
     @classmethod
-    def from_orm(cls, task: Task):
-        assignee_name = None
-        if task.assignee:
-            assignee_name = f"{task.assignee.firstName} {task.assignee.lastName}".strip()
+    async def from_orm(cls, task: Task):
+        from app.models import TaskAssignee
+        
+        assignees = await TaskAssignee.filter(task_id=task.id).prefetch_related('user')
+        assignee_ids = [str(ta.user_id) for ta in assignees]
+        assignee_names = [
+            f"{ta.user.firstName} {ta.user.lastName}".strip()
+            for ta in assignees
+            if ta.user
+        ]
         
         return cls(
             id=str(task.id),
             title=task.title,
             status=task.status,
-            assignee_id=str(task.assignee_id) if task.assignee_id else None,
-            assignee_name=assignee_name,
+            assignee_ids=assignee_ids,
+            assignee_names=assignee_names,
             project_id=str(task.project_id),
             version=task.version,
             createdAt=task.createdAt.isoformat(),
@@ -63,8 +69,8 @@ class TaskDetailSerializer(BaseModel):
     title: str
     description: str | None
     status: str
-    assignee_id: str | None
-    assignee_name: str | None = None
+    assignee_ids: List[str] = Field(default_factory=list)
+    assignee_names: List[str] = Field(default_factory=list)
     project_id: str
     version: int
     created_by_id: str | None
@@ -76,10 +82,16 @@ class TaskDetailSerializer(BaseModel):
         from_attributes = True
 
     @classmethod
-    def from_orm(cls, task: Task):
-        assignee_name = None
-        if task.assignee:
-            assignee_name = f"{task.assignee.firstName} {task.assignee.lastName}".strip()
+    async def from_orm(cls, task: Task):
+        from app.models import TaskAssignee
+        
+        assignees = await TaskAssignee.filter(task_id=task.id).prefetch_related('user')
+        assignee_ids = [str(ta.user_id) for ta in assignees]
+        assignee_names = [
+            f"{ta.user.firstName} {ta.user.lastName}".strip()
+            for ta in assignees
+            if ta.user
+        ]
         
         created_by_name = None
         if task.created_by:
@@ -90,8 +102,8 @@ class TaskDetailSerializer(BaseModel):
             title=task.title,
             description=task.description,
             status=task.status,
-            assignee_id=str(task.assignee_id) if task.assignee_id else None,
-            assignee_name=assignee_name,
+            assignee_ids=assignee_ids,
+            assignee_names=assignee_names,
             project_id=str(task.project_id),
             version=task.version,
             created_by_id=str(task.created_by_id) if task.created_by_id else None,
@@ -114,7 +126,8 @@ class TaskSerializer(BaseModel):
     title: str
     description: str | None
     status: str
-    assignee_id: str | None
+    assignee_ids: List[str] = Field(default_factory=list)
+    assignee_names: List[str] = Field(default_factory=list)
     project_id: str
     version: int
     created_by_id: str | None
@@ -125,13 +138,24 @@ class TaskSerializer(BaseModel):
         from_attributes = True
 
     @classmethod
-    def from_orm(cls, task: Task):
+    async def from_orm(cls, task: Task):
+        from app.models import TaskAssignee
+        
+        assignees = await TaskAssignee.filter(task_id=task.id).prefetch_related('user')
+        assignee_ids = [str(ta.user_id) for ta in assignees]
+        assignee_names = [
+            f"{ta.user.firstName} {ta.user.lastName}".strip()
+            for ta in assignees
+            if ta.user
+        ]
+        
         return cls(
             id=str(task.id),
             title=task.title,
             description=task.description,
             status=task.status,
-            assignee_id=str(task.assignee_id) if task.assignee_id else None,
+            assignee_ids=assignee_ids,
+            assignee_names=assignee_names,
             project_id=str(task.project_id),
             version=task.version,
             created_by_id=str(task.created_by_id) if task.created_by_id else None,

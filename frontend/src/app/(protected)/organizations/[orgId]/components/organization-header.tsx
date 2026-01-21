@@ -2,19 +2,21 @@
 
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Settings, Users2 } from "lucide-react"
+import { FolderKanban, Settings, Users2 } from "lucide-react"
 import type { Organization } from "@/types/organization"
 
 interface OrganizationHeaderProps {
   organization: Organization
   onSettingsClick: () => void
   onMembersClick: () => void
+  onProjectsClick: () => void
 }
 
 export function OrganizationHeader({
   organization,
   onSettingsClick,
   onMembersClick,
+  onProjectsClick,
 }: OrganizationHeaderProps) {
   const getRoleBadgeVariant = (role?: string) => {
     switch (role) {
@@ -74,6 +76,12 @@ export function OrganizationHeader({
           <Button variant="outline" onClick={onMembersClick}>
             <Users2 className="w-4 h-4 mr-2" />
             Members List
+          </Button>
+        )}
+        {(
+          <Button variant="outline" onClick={onProjectsClick}>
+            <FolderKanban className="w-4 h-4 mr-2" />
+            Projects
           </Button>
         )}
       </div>

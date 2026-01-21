@@ -23,14 +23,14 @@ class CommonManager:
                     {
                         "id": str(project.id),
                         "name": project.name,
-                        "createdAt": project.createdAt,
+                        "createdAt": project.createdAt.isoformat() if project.createdAt else None,
                     }
                     for project in org.projects
                     if not project.is_archieved
                 ]
             })
             
-            return response
+        return response
 
         
         

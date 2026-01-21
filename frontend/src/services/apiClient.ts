@@ -17,13 +17,17 @@ async function refreshAccessToken(): Promise<string | null> {
   const refreshToken = storageUtils.getRefreshToken()
 
   if (!currentAccessToken || !refreshToken) {
-    storageUtils.clearAuthAndRedirectToLogin()
+    // No tokens available - can't refresh
     return null
   }
 
   if (isRefreshing && refreshPromise) {
-    await refreshPromise
-    return storageUtils.getAccessToken()
+    try {
+      await refreshPromise
+      return storageUtils.getAccessToken()
+    } catch {
+      return null
+    }
   }
 
   isRefreshing = true
@@ -41,7 +45,7 @@ async function refreshAccessToken(): Promise<string | null> {
       const data = await res.json().catch(() => null)
 
       if (!res.ok || !data?.success || !data?.data) {
-        storageUtils.clearAuthAndRedirectToLogin()
+        storageUtils.clearAuth()
         throw new Error(data?.message || data?.detail || "Failed to refresh token")
       }
 
@@ -50,16 +54,16 @@ async function refreshAccessToken(): Promise<string | null> {
       const newRefreshToken: string | undefined = data.data.refresh_token
 
       if (!newAccessToken || !newRefreshToken) {
-        storageUtils.clearAuthAndRedirectToLogin()
+        storageUtils.clearAuth()
         throw new Error("Invalid token response from server")
       }
 
-      // Update stored tokens
       storageUtils.setAccessToken(newAccessToken)
       storageUtils.setRefreshToken(newRefreshToken)
     } catch (error) {
-      // On any error, clear auth and redirect to login to prevent retry loops
-      storageUtils.clearAuthAndRedirectToLogin()
+      if (storageUtils.getRefreshToken()) {
+        storageUtils.clearAuth()
+      }
       throw error
     } finally {
       isRefreshing = false
@@ -71,7 +75,6 @@ async function refreshAccessToken(): Promise<string | null> {
     await refreshPromise
     return storageUtils.getAccessToken()
   } catch {
-    // Refresh failed, return null
     return null
   }
 }
@@ -150,7 +153,7 @@ async function request<T>(
           currentToken = newToken
           continue
         } else {
-          // Refresh failed - tokens already cleared & redirect triggered
+          storageUtils.clearAuthAndRedirectToLogin()
           const error: ApiError = new Error("Session expired. Please login again.")
           error.status = 401
           error.data = data
@@ -170,7 +173,7 @@ async function request<T>(
       return data as T
     }
 
-    // If we've exhausted retries, throw an error
+    storageUtils.clearAuthAndRedirectToLogin()
     const error: ApiError = new Error("Session expired. Please login again.")
     error.status = 401
     throw error

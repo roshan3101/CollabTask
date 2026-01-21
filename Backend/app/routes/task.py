@@ -22,9 +22,9 @@ async def create_task(
 
     payload = await request.json()
 
-    await TaskManager.validate_project_access(project_id, str(user.id), require_write=True)
+    await TaskManager.validate_project_access(project_id, str(user.get('user_id')), require_write=True)
 
-    result = await TaskManager.create_task(payload, project_id, str(user.id))
+    result = await TaskManager.create_task(payload, project_id, str(user.get('user_id')))
     content = ApiResponse(success=True, message="Task created successfully", data=result)
     return JSONResponse(content=content, status_code=201)
 
@@ -73,15 +73,15 @@ async def update_task(
     project_id: str,
     task_id: str,
     request: Request,
-    user=Depends(require_user),
+    user: dict = Depends(require_user),
     project=Depends(project_access())
 ):
 
     payload = await request.json()
 
-    await TaskManager.validate_project_access(project_id, str(user.id), require_write=True)
+    await TaskManager.validate_project_access(project_id, str(user.get('user_id')), require_write=True)
 
-    result = await TaskManager.update_task(task_id, payload, str(user.id), project_id=project_id)
+    result = await TaskManager.update_task(task_id, payload, str(user.get('user_id')), project_id=project_id)
     content = ApiResponse(success=True, message="Task updated successfully", data=result)
     return JSONResponse(content=content, status_code=200)
 
@@ -91,7 +91,7 @@ async def assign_task(
     project_id: str,
     task_id: str,
     request: Request,
-    user=Depends(require_user),
+    user: dict = Depends(require_user),
     project=Depends(project_access())
 ):
 
@@ -115,8 +115,8 @@ async def change_task_status(
 
     payload = await request.json()
 
-    await TaskManager.validate_project_access(project_id, str(user.id), require_write=True)
+    await TaskManager.validate_project_access(project_id, str(user.get('user_id')), require_write=True)
 
-    result = await TaskManager.change_task_status(task_id, payload, str(user.id), project_id=project_id)
+    result = await TaskManager.change_task_status(task_id, payload, str(user.get('user_id')), project_id=project_id)
     content = ApiResponse(success=True, message="Task status updated successfully", data=result)
     return JSONResponse(content=content, status_code=200)

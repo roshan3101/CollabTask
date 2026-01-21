@@ -73,5 +73,5 @@ def project_access():
         request.state.project = project
         request.state.role = membership.role
 
-        return membership
+        return project
     return project_access_guard
