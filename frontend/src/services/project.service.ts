@@ -94,6 +94,29 @@ export class ProjectService {
             }
         }
     }
+
+    async getProjectAnalytics(orgId: string, projectId: string): Promise<CommonResponse<{
+        total_tasks: number
+        active_tasks: number
+        completed_tasks: number
+        team_members: number
+    }>> {
+        try {
+            const data = await apiClient.get<CommonResponse<{
+                total_tasks: number
+                active_tasks: number
+                completed_tasks: number
+                team_members: number
+            }>>(`/organizations/${orgId}/projects/${projectId}/analytics`)
+            return data
+        } catch (error) {
+            return {
+                success: false,
+                message: "Failed to load project analytics",
+                error: error instanceof Error ? error.message : "Unknown error",
+            }
+        }
+    }
 }
 
 export const projectService = new ProjectService()

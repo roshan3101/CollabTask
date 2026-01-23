@@ -1,9 +1,10 @@
-from app.models import Organization, Membership, User
+from app.models import Organization, Membership, User, Project, Task, TaskAssignee
 from app.models.membership import MembershipRole, MembershipStatus
 from app.exceptions import BadRequestException
 from app.schemas.organization import CREATE_ORGANIZATION_SCHEMA, UPDATE_ORGANIZATION_SCHEMA, OrganizationSerializer
 from tortoise.transactions import in_transaction
 from tortoise import connections
+from typing import Dict
 
 class OrganizationManager:
 
@@ -222,3 +223,50 @@ class OrganizationManager:
         await membership.save()
 
         return {"message": "Member role updated successfully."}
+
+    @classmethod
+    async def get_organization_analytics(cls, org_id: str) -> Dict:
+        """Get analytics for an organization"""
+        org = await Organization.get_or_none(id=org_id)
+        if not org:
+            raise BadRequestException("Organization not found.")
+
+        # Total projects (non-archived)
+        total_projects = await Project.filter(
+            org_id=org_id,
+            is_archieved=False
+        ).count()
+
+        # Total members
+        total_members = await Membership.filter(
+            organizationId=org_id,
+            status=MembershipStatus.ACTIVE
+        ).count()
+
+        # Total tasks across all projects in organization
+        total_tasks = await Task.filter(
+            project__org_id=org_id,
+            project__is_archieved=False
+        ).count()
+
+        # Active tasks (todo or in_progress)
+        active_tasks = await Task.filter(
+            project__org_id=org_id,
+            project__is_archieved=False,
+            status__in=["todo", "in_progress"]
+        ).count()
+
+        # Completed tasks
+        completed_tasks = await Task.filter(
+            project__org_id=org_id,
+            project__is_archieved=False,
+            status="done"
+        ).count()
+
+        return {
+            "total_projects": total_projects,
+            "total_members": total_members,
+            "total_tasks": total_tasks,
+            "active_tasks": active_tasks,
+            "completed_tasks": completed_tasks
+        }

@@ -133,6 +133,13 @@ export const logout = createAsyncThunk("auth/logoutUser", async (_, { rejectWith
   }
 })
 
+export const updateUser = createAsyncThunk(
+  "auth/updateUser",
+  async (userData: AuthenticatedUser, { rejectWithValue }) => {
+    return userData
+  }
+)
+
 const authSlice = createSlice({
   name: "auth",
   initialState,
@@ -284,6 +291,14 @@ const authSlice = createSlice({
     builder.addCase(logout.rejected, (state, action) => {
       state.isLoading = false
       state.error = action.payload as string
+    })
+
+    // Update user
+    builder.addCase(updateUser.fulfilled, (state, action) => {
+      state.user = action.payload
+      if (action.payload) {
+        storageUtils.setUser(action.payload)
+      }
     })
   },
 })

@@ -8,6 +8,7 @@ export interface Task {
   assignee_ids?: string[]
   assignee_names?: string[]
   project_id: string
+  org_id?: string | null
   version: number
   created_by_id?: string | null
   created_by_name?: string | null

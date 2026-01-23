@@ -97,9 +97,9 @@ async def assign_task(
 
     payload = await request.json()
 
-    await TaskManager.validate_project_access(project_id, str(user.id), require_write=True)
+    await TaskManager.validate_project_access(project_id, str(user.get('user_id')), require_write=True)
 
-    result = await TaskManager.assign_task(task_id, payload, str(user.id), project_id=project_id)
+    result = await TaskManager.assign_task(task_id, payload, str(user.get('user_id')), project_id=project_id)
     content = ApiResponse(success=True, message="Task assigned successfully", data=result)
     return JSONResponse(content=content, status_code=200)
 
@@ -119,4 +119,19 @@ async def change_task_status(
 
     result = await TaskManager.change_task_status(task_id, payload, str(user.get('user_id')), project_id=project_id)
     content = ApiResponse(success=True, message="Task status updated successfully", data=result)
+    return JSONResponse(content=content, status_code=200)
+
+@router.delete('/{task_id}')
+async def delete_task(
+    org_id: str,
+    project_id: str,
+    task_id: str,
+    user=Depends(require_user),
+    project=Depends(project_access())
+):
+
+    await TaskManager.validate_project_access(project_id, str(user.get('user_id')), require_write=True)
+
+    await TaskManager.delete_task(task_id, project_id=project_id)
+    content = ApiResponse(success=True, message="Task deleted successfully")
     return JSONResponse(content=content, status_code=200)

@@ -143,6 +143,48 @@ export const changeTaskStatus = createAsyncThunk(
   }
 )
 
+export const deleteTask = createAsyncThunk(
+  "tasks/delete",
+  async (
+    { orgId, projectId, taskId }: { orgId: string; projectId: string; taskId: string },
+    { rejectWithValue }
+  ) => {
+    try {
+      const response = await taskService.deleteTask(orgId, projectId, taskId)
+      if (!response.success) {
+        return rejectWithValue(response.error || response.message)
+      }
+      return taskId
+    } catch (error) {
+      return rejectWithValue(error instanceof Error ? error.message : "Failed to delete task")
+    }
+  }
+)
+
+export const fetchMyTasks = createAsyncThunk(
+  "tasks/myTasks",
+  async (
+    params?: {
+      page?: number
+      page_size?: number
+      status?: string
+      sort_by?: string
+      sort_order?: string
+    },
+    { rejectWithValue }
+  ) => {
+    try {
+      const response = await taskService.getMyTasks(params)
+      if (!response.success || !response.data) {
+        return rejectWithValue(response.error || response.message)
+      }
+      return response.data
+    } catch (error) {
+      return rejectWithValue(error instanceof Error ? error.message : "Failed to load my tasks")
+    }
+  }
+)
+
 const taskSlice = createSlice({
   name: "tasks",
   initialState,
@@ -232,6 +274,40 @@ const taskSlice = createSlice({
         }
       })
       .addCase(changeTaskStatus.rejected, (state, action) => {
+        state.isLoading = false
+        state.error = action.payload as string
+      })
+      .addCase(deleteTask.pending, (state) => {
+        state.isLoading = true
+        state.error = null
+      })
+      .addCase(deleteTask.fulfilled, (state, action: PayloadAction<string>) => {
+        state.isLoading = false
+        state.tasks = state.tasks.filter((t) => t.id !== action.payload)
+        if (state.activeTask?.id === action.payload) {
+          state.activeTask = null
+        }
+      })
+      .addCase(deleteTask.rejected, (state, action) => {
+        state.isLoading = false
+        state.error = action.payload as string
+      })
+
+      .addCase(fetchMyTasks.pending, (state) => {
+        state.isLoading = true
+        state.error = null
+      })
+      .addCase(fetchMyTasks.fulfilled, (state, action) => {
+        state.isLoading = false
+        state.tasks = action.payload.items
+        state.pagination = {
+          total: action.payload.total,
+          page: action.payload.page,
+          page_size: action.payload.page_size,
+          total_pages: action.payload.total_pages,
+        }
+      })
+      .addCase(fetchMyTasks.rejected, (state, action) => {
         state.isLoading = false
         state.error = action.payload as string
       })

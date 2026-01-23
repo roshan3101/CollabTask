@@ -1,205 +1,93 @@
-from app.models import Activity
-from app.models.activity import EntityType, ActionType
-from typing import Dict, Any, Optional
-from app.constants import GeneralConstants
+from app.models import Activity, Organization, Membership
+from app.models.membership import MembershipRole, MembershipStatus
+from app.exceptions import BadRequestException
+from app.utils.validator import Validator
+from typing import Dict, List, Optional
+from tortoise import connections
 
 class ActivityManager:
-
+    
     @classmethod
-    async def log_activity(
+    async def get_organization_activities(
         cls,
-        entity_type: EntityType,
-        entity_id: str,
-        action: ActionType,
-        user_id: str,
         org_id: str,
-        metadata: Optional[Dict[str, Any]] = None
+        user_id: str,
+        page: int = 1,
+        page_size: int = 50,
+        entity_type: Optional[str] = None,
+        action_type: Optional[str] = None
+    ) -> Dict:
+        org_id = Validator.validate_uuid(org_id, "org_id")
+        user_id = Validator.validate_uuid(user_id, "user_id")
+        
+        # Check if user is admin or owner
+        membership = await Membership.get_or_none(
+            userId=user_id,
+            organizationId=org_id,
+            status=MembershipStatus.ACTIVE
+        )
+        
+        if not membership:
+            raise BadRequestException("You are not a member of this organization.")
+        
+        if membership.role not in [MembershipRole.ADMIN, MembershipRole.OWNER]:
+            raise BadRequestException("Only admins and owners can view activities.")
+        
+        query = Activity.filter(org_id=org_id)
+        
+        if entity_type:
+            query = query.filter(entity_type=entity_type)
+        
+        if action_type:
+            query = query.filter(action=action_type)
+        
+        # Get total count
+        total = await query.count()
+        
+        # Get paginated results
+        activities = await query.order_by("-created_at").offset(
+            (page - 1) * page_size
+        ).limit(page_size)
+        
+        # Serialize activities
+        activities_list = []
+        for activity in activities:
+            activities_list.append({
+                "id": str(activity.id),
+                "entity_type": activity.entity_type,
+                "entity_id": str(activity.entity_id),
+                "action": activity.action,
+                "metadata": activity.metadata or {},
+                "user_id": str(activity.user_id),
+                "created_at": activity.created_at.isoformat() if activity.created_at else None,
+            })
+        
+        return {
+            "activities": activities_list,
+            "pagination": {
+                "page": page,
+                "page_size": page_size,
+                "total": total,
+                "total_pages": (total + page_size - 1) // page_size,
+            }
+        }
+    
+    @classmethod
+    async def create_activity(
+        cls,
+        org_id: str,
+        user_id: str,
+        entity_type: str,
+        entity_id: str,
+        action: str,
+        metadata: Optional[Dict] = None
     ) -> Activity:
-
         activity = await Activity.create(
+            org_id=org_id,
+            user_id=user_id,
             entity_type=entity_type,
             entity_id=entity_id,
             action=action,
-            metadata=metadata or {},
-            user_id=user_id,
-            org_id=org_id
+            metadata=metadata
         )
         return activity
-
-    @classmethod
-    async def get_entity_activities(
-        cls,
-        entity_type: EntityType,
-        entity_id: str,
-        limit: int = GeneralConstants.DEFAULT_ACTIVITY_LIMIT
-    ) -> list:
-
-        activities = await Activity.filter(
-            entity_type=entity_type,
-            entity_id=entity_id
-        ).order_by('-created_at').limit(limit)
-
-        return activities
-
-    @classmethod
-    async def get_org_activities(
-        cls,
-        org_id: str,
-        entity_type: Optional[EntityType] = None,
-        limit: int = GeneralConstants.ORG_ACTIVITY_LIMIT
-    ) -> list:
-
-        query = Activity.filter(org_id=org_id)
-        if entity_type:
-            query = query.filter(entity_type=entity_type)
-
-        activities = await query.order_by('-created_at').limit(limit)
-        return activities
-
-    @classmethod
-    async def get_user_activities(
-        cls,
-        user_id: str,
-        org_id: Optional[str] = None,
-        limit: int = GeneralConstants.DEFAULT_ACTIVITY_LIMIT
-    ) -> list:
-
-        query = Activity.filter(user_id=user_id)
-        if org_id:
-            query = query.filter(org_id=org_id)
-
-        activities = await query.order_by('-created_at').limit(limit)
-        return activities
-
-    # Specific logging methods for different actions
-
-    @classmethod
-    async def log_task_created(
-        cls,
-        task_id: str,
-        project_id: str,
-        org_id: str,
-        user_id: str,
-        task_data: Dict[str, Any]
-    ):
-        metadata = {
-            'project_id': project_id,
-            'title': task_data.get('title'),
-            'description': task_data.get('description'),
-            'status': task_data.get('status'),
-            'assignee_id': task_data.get('assignee_id')
-        }
-        await cls.log_activity(
-            EntityType.TASK,
-            task_id,
-            ActionType.TASK_CREATED,
-            user_id,
-            org_id,
-            metadata
-        )
-
-    @classmethod
-    async def log_task_status_changed(
-        cls,
-        task_id: str,
-        org_id: str,
-        user_id: str,
-        old_status: str,
-        new_status: str
-    ):
-        metadata = {
-            'old_status': old_status,
-            'new_status': new_status
-        }
-        await cls.log_activity(
-            EntityType.TASK,
-            task_id,
-            ActionType.TASK_STATUS_CHANGED,
-            user_id,
-            org_id,
-            metadata
-        )
-
-    @classmethod
-    async def log_task_description_updated(
-        cls,
-        task_id: str,
-        org_id: str,
-        user_id: str,
-        old_description: str,
-        new_description: str
-    ):
-        metadata = {
-            'old_description': old_description,
-            'new_description': new_description
-        }
-        await cls.log_activity(
-            EntityType.TASK,
-            task_id,
-            ActionType.TASK_DESCRIPTION_UPDATED,
-            user_id,
-            org_id,
-            metadata
-        )
-
-    @classmethod
-    async def log_task_assigned(
-        cls,
-        task_id: str,
-        org_id: str,
-        user_id: str,
-        assignee_id: str
-    ):
-        metadata = {
-            'assignee_id': assignee_id
-        }
-        await cls.log_activity(
-            EntityType.TASK,
-            task_id,
-            ActionType.TASK_ASSIGNED,
-            user_id,
-            org_id,
-            metadata
-        )
-
-    @classmethod
-    async def log_task_unassigned(
-        cls,
-        task_id: str,
-        org_id: str,
-        user_id: str,
-        old_assignee_id: str
-    ):
-        metadata = {
-            'old_assignee_id': old_assignee_id
-        }
-        await cls.log_activity(
-            EntityType.TASK,
-            task_id,
-            ActionType.TASK_UNASSIGNED,
-            user_id,
-            org_id,
-            metadata
-        )
-
-    @classmethod
-    async def log_task_title_updated(
-        cls,
-        task_id: str,
-        org_id: str,
-        user_id: str,
-        old_title: str,
-        new_title: str
-    ):
-        metadata = {
-            'old_title': old_title,
-            'new_title': new_title
-        }
-        await cls.log_activity(
-            EntityType.TASK,
-            task_id,
-            ActionType.TASK_TITLE_UPDATED,
-            user_id,
-            org_id,
-            metadata
-        )

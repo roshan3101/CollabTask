@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { useRouter, useParams } from "next/navigation"
 import { useAppDispatch, useAppSelector } from "@/stores/hooks"
-import { fetchTaskDetail, updateTask } from "@/stores/slices/task.slice"
+import { fetchTaskDetail, updateTask, deleteTask } from "@/stores/slices/task.slice"
 import { fetchProjectDetail } from "@/stores/slices/project.slice"
 import { fetchOrganizationDetail } from "@/stores/slices/organization.slice"
 import { organizationService } from "@/services/organization.service"
@@ -16,11 +16,9 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { Badge } from "@/components/ui/badge"
 import { DeleteModal } from "@/components/ui/delete-modal"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import {
@@ -142,9 +140,23 @@ export default function TaskDetailPage() {
   }
 
   const handleDelete = async () => {
-    // TODO: Implement delete functionality when backend endpoint is available
-    toast.info("Delete functionality coming soon")
-    setIsDeleteModalOpen(false)
+    if (!activeTask) return
+    try {
+      await dispatch(
+        deleteTask({
+          orgId,
+          projectId,
+          taskId: activeTask.id,
+        })
+      ).unwrap()
+      toast.success("Task deleted successfully")
+      setIsDeleteModalOpen(false)
+      router.push(`/organizations/${orgId}/projects/${projectId}`)
+    } catch (err) {
+      const message = typeof err === "string" ? err : "Failed to delete task"
+      toast.error(message)
+      setIsDeleteModalOpen(false)
+    }
   }
 
   const getStatusColor = (status: TaskStatus) => {

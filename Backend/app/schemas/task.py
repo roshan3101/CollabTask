@@ -32,6 +32,7 @@ class TaskListSerializer(BaseModel):
     assignee_ids: List[str] = Field(default_factory=list)
     assignee_names: List[str] = Field(default_factory=list)
     project_id: str
+    org_id: str | None = None
     version: int
     createdAt: str
     updatedAt: str
@@ -51,6 +52,14 @@ class TaskListSerializer(BaseModel):
             if ta.user
         ]
         
+        # Get org_id from project if available
+        org_id = None
+        if hasattr(task, 'project') and task.project:
+            if hasattr(task.project, 'org_id'):
+                org_id = str(task.project.org_id)
+            elif hasattr(task.project, 'org') and task.project.org:
+                org_id = str(task.project.org.id)
+        
         return cls(
             id=str(task.id),
             title=task.title,
@@ -58,6 +67,7 @@ class TaskListSerializer(BaseModel):
             assignee_ids=assignee_ids,
             assignee_names=assignee_names,
             project_id=str(task.project_id),
+            org_id=org_id,
             version=task.version,
             createdAt=task.createdAt.isoformat(),
             updatedAt=task.updatedAt.isoformat(),

@@ -1,8 +1,9 @@
-from app.models import Project, Organization, Membership
+from app.models import Project, Organization, Membership, Task, TaskAssignee
 from app.models.membership import MembershipRole
 from app.exceptions import BadRequestException
 from app.schemas.project import CREATE_PROJECT_SCHEMA, UPDATE_PROJECT_SCHEMA, ProjectSerializer
 from tortoise.transactions import in_transaction
+from typing import Dict
 
 class ProjectManager:
 
@@ -114,3 +115,38 @@ class ProjectManager:
         projects = await Project.filter(org_id=org_id, is_archieved=True)
 
         return [ProjectSerializer.from_orm(project).dict() for project in projects]
+
+    @classmethod
+    async def get_project_analytics(cls, project_id: str) -> Dict:
+        """Get analytics for a project"""
+        project = await Project.get_or_none(id=project_id, is_archieved=False)
+        if not project:
+            raise BadRequestException("Project not found.")
+
+        # Total tasks
+        total_tasks = await Task.filter(project_id=project_id).count()
+
+        # Active tasks (todo or in_progress)
+        active_tasks = await Task.filter(
+            project_id=project_id,
+            status__in=["todo", "in_progress"]
+        ).count()
+
+        # Completed tasks
+        completed_tasks = await Task.filter(
+            project_id=project_id,
+            status="done"
+        ).count()
+
+        # Team members (unique users assigned to tasks in this project)
+        assignee_ids = await TaskAssignee.filter(
+            task__project_id=project_id
+        ).distinct().values_list('user_id', flat=True)
+        team_members = len(set(assignee_ids)) if assignee_ids else 0
+
+        return {
+            "total_tasks": total_tasks,
+            "active_tasks": active_tasks,
+            "completed_tasks": completed_tasks,
+            "team_members": team_members
+        }

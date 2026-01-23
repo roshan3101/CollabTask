@@ -72,18 +72,10 @@ export function OrganizationHeader({
             Settings
           </Button>
         )}
-        {(
-          <Button variant="outline" onClick={onMembersClick}>
-            <Users2 className="w-4 h-4 mr-2" />
-            Members List
-          </Button>
-        )}
-        {(
-          <Button variant="outline" onClick={onProjectsClick}>
-            <FolderKanban className="w-4 h-4 mr-2" />
-            Projects
-          </Button>
-        )}
+        <Button variant="outline" onClick={onProjectsClick}>
+          <FolderKanban className="w-4 h-4 mr-2" />
+          Projects
+        </Button>
       </div>
     </div>
   )

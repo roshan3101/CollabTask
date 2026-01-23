@@ -10,6 +10,7 @@ import { fetchOrganizations } from "@/stores/slices/common.slice";
 import { logout } from "@/stores/slices/auth.slice";
 import { useRouter } from "next/navigation";
 import { Separator } from "./ui/separator";
+import { DeleteModal } from "./ui/delete-modal";
 
 export function AppSidebar() {
 
@@ -18,6 +19,7 @@ export function AppSidebar() {
     const { error, isLoading, organizations } = useAppSelector((state) => state.common);
     const hasFetchedRef = useRef(false);
     const [isProjectsOpen, setIsProjectsOpen] = useState(false);
+    const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
 
     const handleLogout = async () => {
         try {
@@ -94,7 +96,7 @@ export function AppSidebar() {
                         <SidebarMenu>
                             <SidebarMenuItem key="my_tasks">
                             <SidebarMenuButton asChild>
-                                <a href={'/my-tasks'}>
+                                <a href={'/my_tasks'}>
                                     <ListTodoIcon />
                                     <span>My Tasks</span>
                                 </a>
@@ -225,7 +227,7 @@ export function AppSidebar() {
                     <SidebarGroup>
                         <SidebarGroupContent>
 
-                            <SidebarMenuItem key="logout" onClick={handleLogout}>
+                            <SidebarMenuItem key="logout" onClick={() => setIsLogoutModalOpen(true)}>
                                 <SidebarMenuButton>
                                     <LogOutIcon />
                                     <span>Logout</span>
@@ -244,6 +246,13 @@ export function AppSidebar() {
                         </SidebarGroupContent>
                     </SidebarGroup>
             </SidebarFooter>
+
+            <DeleteModal
+                open={isLogoutModalOpen}
+                placeholder="logout"
+                onConfirm={handleLogout}
+                onCancel={() => setIsLogoutModalOpen(false)}
+            />
         </Sidebar>
     )
 }

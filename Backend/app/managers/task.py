@@ -354,3 +354,88 @@ class TaskManager:
             raise ForbiddenException(ErrorMessages.INSUFFICIENT_PERMISSIONS)
 
         return project, membership
+    
+    
+    @classmethod
+    async def delete_task(cls, task_id: str, project_id: Optional[str] = None):
+        task_id = Validator.validate_uuid(task_id, "task_id")
+        if project_id:
+            project_id = Validator.validate_uuid(project_id, "project_id")
+
+        task = await Task.get_or_none(id=task_id).select_related('project')
+        if not task:
+            raise NotFoundException(ErrorMessages.TASK_NOT_FOUND)
+
+        if project_id and str(task.project_id) != project_id:
+            raise NotFoundException(ErrorMessages.TASK_NOT_IN_PROJECT)
+
+        if task.project.is_archieved:
+            raise NotFoundException(ErrorMessages.PROJECT_ARCHIVED)
+
+        await task.delete()
+
+    @classmethod
+    async def list_my_tasks(
+        cls,
+        user_id: str,
+        page: int = 1,
+        page_size: int = 20,
+        status: Optional[str] = None,
+        sort_by: str = "updatedAt",
+        sort_order: str = "desc"
+    ):
+        user_id = Validator.validate_uuid(user_id, "user_id")
+        page = Validator.validate_positive_integer(page, "page", min_value=1)
+        page_size = Validator.validate_positive_integer(page_size, "page_size", min_value=1, max_value=100)
+
+        # Validate status filter
+        if status and status not in GeneralConstants.TASK_STATUSES:
+            raise BadRequestException(ErrorMessages.INVALID_STATUS)
+
+        # Validate sort_by field
+        valid_sort_fields = ["updatedAt", "createdAt", "title", "status"]
+        if sort_by not in valid_sort_fields:
+            sort_by = "updatedAt"
+
+        # Validate sort_order
+        if sort_order not in ["asc", "desc"]:
+            sort_order = "desc"
+
+        # Build query - get all tasks where user is assigned, and project is not archived
+        query = Task.filter(
+            assignees__user_id=user_id,
+            project__is_archieved=False
+        ).select_related('project', 'project__org')
+
+        # Apply status filter
+        if status:
+            query = query.filter(status=status)
+
+        # Get total count for pagination
+        total = await query.count()
+
+        # Apply sorting
+        sort_field = f"-{sort_by}" if sort_order == "desc" else sort_by
+        query = query.order_by(sort_field)
+
+        # Apply pagination
+        skip = (page - 1) * page_size
+        tasks = await query.offset(skip).limit(page_size).all()
+
+        # Convert to list serializers
+        items = []
+        for task in tasks:
+            serializer = await TaskListSerializer.from_orm(task)
+            items.append(serializer.dict())
+
+        # Calculate total pages
+        total_pages = ceil(total / page_size) if total > 0 else 0
+
+        # Return paginated response
+        return {
+            "items": items,
+            "total": total,
+            "page": page,
+            "page_size": page_size,
+            "total_pages": total_pages
+        }

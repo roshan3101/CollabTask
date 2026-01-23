@@ -188,3 +188,14 @@ async def leave_organization(
         message="Successfully left the organization"
     )
     return JSONResponse(content=content, status_code=200)
+
+@router.get('/{org_id}/analytics')
+async def get_organization_analytics(
+    org_id: str,
+    request: Request,
+    membership=Depends(require_org_membership()),
+    role=Depends(require_role(["member", "admin", "owner"]))
+):
+    result = await OrganizationManager.get_organization_analytics(org_id)
+    content = ApiResponse(success=True, message="Organization analytics retrieved successfully", data=result)
+    return JSONResponse(content=content, status_code=200)

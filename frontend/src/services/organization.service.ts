@@ -166,6 +166,31 @@ class OrganizationService {
       }
     }
   }
+
+  async getOrganizationAnalytics(orgId: string): Promise<CommonResponse<{
+    total_projects: number
+    total_members: number
+    total_tasks: number
+    active_tasks: number
+    completed_tasks: number
+  }>> {
+    try {
+      const data = await apiClient.get<CommonResponse<{
+        total_projects: number
+        total_members: number
+        total_tasks: number
+        active_tasks: number
+        completed_tasks: number
+      }>>(`/organizations/${orgId}/analytics`)
+      return data
+    } catch (error) {
+      return {
+        success: false,
+        message: "Failed to load organization analytics",
+        error: error instanceof Error ? error.message : "Unknown error",
+      }
+    }
+  }
 }
 
 export const organizationService = new OrganizationService()

@@ -1,68 +1,46 @@
 from app.models import User
-from app.utils.validator import Validator
 from app.exceptions import BadRequestException
-from app.schemas.user import CREATE_USER_SCHEMA, UPDATE_USER_SCHEMA, UserSerializer
-from app.utils import PasswordUtils
+from app.utils.validator import Validator
+from app.schemas.user import UserSerializer
+from typing import Dict
 
 class UserManager:
-
+    
     @classmethod
-    async def createUser(cls, payload: dict):
-        payload = Validator.validate_schema(CREATE_USER_SCHEMA, payload)
-
-        existingUser = await User.get_or_none(email=payload.get("email"))
-        if existingUser:
-            raise BadRequestException("User with this email already exists.")
+    async def get_user_profile(cls, user_id: str) -> Dict:
+        user_id = Validator.validate_uuid(user_id, "user_id")
         
-        if 'password' in payload:
-            hashed_password = PasswordUtils.hash_password(payload.get("password"))
-            payload['password'] = hashed_password
+        user = await User.get_or_none(id=user_id)
+        if not user:
+            raise BadRequestException("User not found.")
         
-        user = await User.create(**payload)
         return UserSerializer.from_orm(user).dict()
     
     @classmethod
-    async def updateUser(cls, user_id: str, payload: dict):
-        payload = Validator.validate_schema(UPDATE_USER_SCHEMA, payload)
-
-        user = await cls._getUserById(user_id)
+    async def update_user_profile(cls, user_id: str, payload: dict) -> Dict:
+        user_id = Validator.validate_uuid(user_id, "user_id")
+        
+        user = await User.get_or_none(id=user_id)
         if not user:
             raise BadRequestException("User not found.")
         
-        if 'password' in payload:
-            hashed_password = PasswordUtils.hash_password(payload.get("password"))
-            payload['password'] = hashed_password
+        # Validate and update allowed fields
+        allowed_fields = ['firstName', 'lastName']
+        update_data = {}
         
-        await user.update(**payload).apply()
-        return user
-    
-    @classmethod
-    async def deleteUser(cls, user_id: str):
-
-        if not user_id:
-            raise BadRequestException("User ID is required.")
+        for field in allowed_fields:
+            if field in payload:
+                value = payload[field]
+                if value and isinstance(value, str) and value.strip():
+                    update_data[field] = value.strip()
         
-        user = await cls.getUserById(user_id)
-        if not user:
-            raise BadRequestException("User not found.")
+        if not update_data:
+            raise BadRequestException("No valid fields to update.")
         
-        await user.delete()
-        return True
-    
-    @classmethod
-    async def getUserList(cls, page_number: int = 1, page_size: int = 10):
-        skip = (page_number - 1) * page_size
-        users = await User.all().skip(skip).limit(page_size).to_list()
-        return users
-    
-    @classmethod
-    async def getUserById(cls, user_id: str):
-        user = await User.get(user_id)
-        return user
-    
-    @classmethod
-    async def getUserByEmail(cls, email: str):
-        user = await User.get_or_none(email=email)
-        if not user:
-            raise BadRequestException("User not found.")
-        return user
+        # Update user
+        for key, value in update_data.items():
+            setattr(user, key, value)
+        
+        await user.save()
+        
+        return UserSerializer.from_orm(user).dict()

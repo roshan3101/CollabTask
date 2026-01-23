@@ -6,6 +6,7 @@ import { useAppDispatch, useAppSelector } from "@/stores/hooks"
 import { fetchProjectDetail, updateProject, deleteProject, fetchProjects } from "@/stores/slices/project.slice"
 import { fetchOrganizationDetail } from "@/stores/slices/organization.slice"
 import { fetchTasks, createTask } from "@/stores/slices/task.slice"
+import { projectService } from "@/services/project.service"
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -45,14 +46,32 @@ export default function ProjectDetailPage() {
   })
   const [isSaving, setIsSaving] = useState(false)
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
+  const [analytics, setAnalytics] = useState<{
+    total_tasks: number
+    active_tasks: number
+    completed_tasks: number
+    team_members: number
+  } | null>(null)
 
   useEffect(() => {
     if (orgId && projectId) {
       dispatch(fetchProjectDetail({ orgId, projectId }))
       dispatch(fetchOrganizationDetail(orgId))
       dispatch(fetchTasks({ orgId, projectId, params: { page_size: 100 } }))
+      fetchProjectAnalytics()
     }
   }, [dispatch, orgId, projectId])
+
+  const fetchProjectAnalytics = async () => {
+    try {
+      const response = await projectService.getProjectAnalytics(orgId, projectId)
+      if (response.success && response.data) {
+        setAnalytics(response.data)
+      }
+    } catch (err) {
+      // Silently fail - analytics are optional
+    }
+  }
 
   useEffect(() => {
     if (activeProject) {
@@ -194,7 +213,23 @@ export default function ProjectDetailPage() {
         <div className="flex-1">
           <h1 className="text-3xl font-bold mb-2">{activeProject.name}</h1>
           {activeProject.description && (
-            <p className="text-muted-foreground">{activeProject.description}</p>
+            <p className="text-muted-foreground mb-3">{activeProject.description}</p>
+          )}
+          {analytics && (
+            <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground mt-3">
+              <p>
+                <span className="font-medium">Total Tasks:</span> {analytics.total_tasks}
+              </p>
+              <p>
+                <span className="font-medium">Active:</span> {analytics.active_tasks}
+              </p>
+              <p>
+                <span className="font-medium">Completed:</span> {analytics.completed_tasks}
+              </p>
+              <p>
+                <span className="font-medium">Team Members:</span> {analytics.team_members}
+              </p>
+            </div>
           )}
         </div>
         <ProjectActions

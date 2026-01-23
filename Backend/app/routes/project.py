@@ -97,3 +97,14 @@ async def restore_project(
     result = await ProjectManager.restore_project(project_id, membership, role)
     content = ApiResponse(success=True, message="Project restored successfully", data=result)
     return JSONResponse(content=content, status_code=200)
+
+@router.get('/{project_id}/analytics')
+async def get_project_analytics(
+    org_id: str,
+    project_id: str,
+    request: Request,
+    project=Depends(project_access())
+):
+    result = await ProjectManager.get_project_analytics(project_id)
+    content = ApiResponse(success=True, message="Project analytics retrieved successfully", data=result)
+    return JSONResponse(content=content, status_code=200)

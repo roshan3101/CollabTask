@@ -4,6 +4,7 @@ import CommonReducer from "./slices/common.slice"
 import OrganizationReducer from "./slices/organization.slice"
 import ProjectReducer from "./slices/project.slice"
 import TaskReducer from "./slices/task.slice"
+import DashboardReducer from "./slices/dashboard.slice"
 
 export const store = configureStore({
     reducer: {
@@ -12,6 +13,7 @@ export const store = configureStore({
         organizations: OrganizationReducer,
         projects: ProjectReducer,
         tasks: TaskReducer,
+        dashboard: DashboardReducer,
     },
 })
 
