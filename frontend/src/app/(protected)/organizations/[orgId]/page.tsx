@@ -45,7 +45,7 @@ export default function OrganizationDetailPage() {
   useEffect(() => {
     if (orgId) {
       dispatch(fetchOrganizationDetail(orgId))
-      dispatch(fetchOrganizationMembers(orgId))
+      dispatch(fetchOrganizationMembers({ orgId, includePending: false }))
       fetchAnalytics()
     }
   }, [dispatch, orgId])

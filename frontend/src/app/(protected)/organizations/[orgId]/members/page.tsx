@@ -24,7 +24,7 @@ export default function OrganizationMembersPage(){
     const [isAddMemberDialogOpen, setIsAddMemberDialogOpen] = useState(false)
 
     useEffect(() => {   
-        dispatch(fetchOrganizationMembers(orgId as string))
+        dispatch(fetchOrganizationMembers({ orgId: orgId as string, includePending: true }))
         dispatch(fetchOrganizationDetail(orgId as string))
     }, [dispatch, orgId])
 
@@ -37,7 +37,7 @@ export default function OrganizationMembersPage(){
             const response = await organizationService.removeMember(orgId, userId)
             if(response.success){
                 toast.success("Member removed successfully")
-                await dispatch(fetchOrganizationMembers(orgId as string))
+                await dispatch(fetchOrganizationMembers({ orgId: orgId as string, includePending: true }))
             } else {
                 toast.error(response.error || response.message)
             }
@@ -51,7 +51,7 @@ export default function OrganizationMembersPage(){
             const response = await organizationService.changeMemberRole(orgId, userId, role)
             if (response.success) {
                 toast.success("Member role updated successfully")
-                await dispatch(fetchOrganizationMembers(orgId as string))
+                await dispatch(fetchOrganizationMembers({ orgId: orgId as string, includePending: true }))
             } else {
                 toast.error(response.error || response.message)
             }

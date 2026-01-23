@@ -49,11 +49,10 @@ class OrganizationService {
     }
   }
 
-  async getOrganizationMembers(orgId: string): Promise<CommonResponse<OrganizationMember[]>> {
+  async getOrganizationMembers(orgId: string, includePending: boolean = true): Promise<CommonResponse<OrganizationMember[]>> {
     try {
-      const data = await apiClient.get<CommonResponse<OrganizationMember[]>>(
-        `/organizations/${orgId}/members`
-      )
+      const url = `/organizations/${orgId}/members${includePending ? `?include_pending=true` : `?include_pending=false`}`
+      const data = await apiClient.get<CommonResponse<OrganizationMember[]>>(url)
       return data
     } catch (error) {
       return {
@@ -162,6 +161,36 @@ class OrganizationService {
       return {
         success: false,
         message: "Failed to leave organization",
+        error: error instanceof Error ? error.message : "Unknown error",
+      }
+    }
+  }
+
+  async acceptInvitation(orgId: string): Promise<CommonResponse<null>> {
+    try {
+      const data = await apiClient.post<CommonResponse<null>>(
+        `/organizations/${orgId}/invitations/accept`
+      )
+      return data
+    } catch (error) {
+      return {
+        success: false,
+        message: "Failed to accept invitation",
+        error: error instanceof Error ? error.message : "Unknown error",
+      }
+    }
+  }
+
+  async rejectInvitation(orgId: string): Promise<CommonResponse<null>> {
+    try {
+      const data = await apiClient.post<CommonResponse<null>>(
+        `/organizations/${orgId}/invitations/reject`
+      )
+      return data
+    } catch (error) {
+      return {
+        success: false,
+        message: "Failed to reject invitation",
         error: error instanceof Error ? error.message : "Unknown error",
       }
     }

@@ -22,7 +22,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { DeleteOrganizationModal } from "./components/delete-organization-modal"
 import { toast } from "sonner"
-import { Trash2 } from "lucide-react"
+import { Trash2, Users2Icon } from "lucide-react"
 
 export default function OrganizationSettingsPage() {
   const dispatch = useAppDispatch()
@@ -133,10 +133,20 @@ export default function OrganizationSettingsPage() {
       </Breadcrumb>
 
       <div>
-        <h1 className="text-2xl font-semibold">Organization Settings</h1>
-        <p className="text-muted-foreground text-sm">
-          Manage your organization details and preferences
-        </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold">Organization Settings</h1>
+            <p className="text-muted-foreground text-sm">
+              Manage your organization details and preferences
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => router.push(`/organizations/${orgId}/members`)}>
+              <Users2Icon className="w-4 h-4 mr-2" />
+              Members
+            </Button>
+          </div>
+        </div>
       </div>
 
       <Card>

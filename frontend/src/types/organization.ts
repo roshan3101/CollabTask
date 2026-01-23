@@ -17,6 +17,7 @@ export interface OrganizationMember {
   lastName: string
   email: string
   role: "member" | "admin" | "owner" | string
+  status?: "pending" | "active" | "suspended"
 }
 
 export interface CreateOrganizationInput {

@@ -102,24 +102,44 @@ class OrganizationManager:
         return organizations
 
     @classmethod
-    async def get_organization_members(cls, org_id: str):
+    async def get_organization_members(cls, org_id: str, include_pending: bool = True):
 
         conn = connections.get("default")
-        rows = await conn.execute_query_dict(
-            """
-            SELECT m."userId" as id, m.role, u."firstName", u."lastName", u.email, u."isVerified"
-            FROM memberships m
-            JOIN users u ON m."userId" = u.id
-            WHERE m."organizationId" = $1 AND m.status = $2
-            """,
-            [org_id, MembershipStatus.ACTIVE]
-        )
+        if include_pending:
+            rows = await conn.execute_query_dict(
+                """
+                SELECT m."userId" as id, m.role, m.status, u."firstName", u."lastName", u.email, u."isVerified"
+                FROM memberships m
+                JOIN users u ON m."userId" = u.id
+                WHERE m."organizationId" = $1
+                ORDER BY 
+                    CASE m.status
+                        WHEN 'active' THEN 1
+                        WHEN 'pending' THEN 2
+                        WHEN 'suspended' THEN 3
+                    END,
+                    u."firstName", u."lastName"
+                """,
+                [org_id]
+            )
+        else:
+            rows = await conn.execute_query_dict(
+                """
+                SELECT m."userId" as id, m.role, m.status, u."firstName", u."lastName", u.email, u."isVerified"
+                FROM memberships m
+                JOIN users u ON m."userId" = u.id
+                WHERE m."organizationId" = $1 AND m.status = $2
+                ORDER BY u."firstName", u."lastName"
+                """,
+                [org_id, MembershipStatus.ACTIVE]
+            )
 
         members = []
         for row in rows:
             member_data = {
                 'id': str(row['id']),
                 'role': row['role'],
+                'status': row['status'],
                 'firstName': row['firstName'],
                 'lastName': row['lastName'],
                 'email': row['email'],
@@ -149,21 +169,22 @@ class OrganizationManager:
         if existing_membership:
             if existing_membership.status == MembershipStatus.ACTIVE:
                 raise BadRequestException("User is already a member of this organization.")
+            elif existing_membership.status == MembershipStatus.PENDING:
+                raise BadRequestException("User already has a pending invitation to this organization.")
             else:
-                # Reactivate membership
-                existing_membership.status = MembershipStatus.ACTIVE
+                existing_membership.status = MembershipStatus.PENDING
                 existing_membership.role = role
                 await existing_membership.save()
-                return {"message": "User membership reactivated successfully."}
+                return {"message": "Invitation sent successfully."}
 
-        await Membership.create(
+        membership = await Membership.create(
             userId=user.id,
             organizationId=org_id,
             role=role,
-            status=MembershipStatus.ACTIVE
+            status=MembershipStatus.PENDING
         )
 
-        return {"message": "User added to organization successfully."}
+        return {"message": "Invitation sent successfully.", "membership_id": str(membership.id)}
 
     @classmethod
     async def remove_member(cls, org_id: str, user_id: str):
@@ -177,7 +198,7 @@ class OrganizationManager:
             status=MembershipStatus.ACTIVE
         )
         if not membership:
-            raise BadRequestException("User is not a member of this organization.")
+            raise BadRequestException("User is not an active member of this organization. Pending invitations should be rejected instead.")
 
         if membership.role == MembershipRole.OWNER:
             owner_count = await Membership.filter(
@@ -270,3 +291,40 @@ class OrganizationManager:
             "active_tasks": active_tasks,
             "completed_tasks": completed_tasks
         }
+
+    @classmethod
+    async def accept_invite(cls, org_id: str, user_id: str):
+        org = await Organization.get_or_none(id=org_id)
+        if not org:
+            raise BadRequestException("Organization not found.")
+
+        membership = await Membership.get_or_none(
+            userId=user_id,
+            organizationId=org_id,
+            status=MembershipStatus.PENDING
+        )
+        if not membership:
+            raise BadRequestException("No pending invitation found for this organization.")
+
+        membership.status = MembershipStatus.ACTIVE
+        await membership.save()
+
+        return {"message": "Invitation accepted successfully."}
+
+    @classmethod
+    async def reject_invite(cls, org_id: str, user_id: str):
+        org = await Organization.get_or_none(id=org_id)
+        if not org:
+            raise BadRequestException("Organization not found.")
+
+        membership = await Membership.get_or_none(
+            userId=user_id,
+            organizationId=org_id,
+            status=MembershipStatus.PENDING
+        )
+        if not membership:
+            raise BadRequestException("No pending invitation found for this organization.")
+
+        await membership.delete()
+
+        return {"message": "Invitation rejected successfully."}

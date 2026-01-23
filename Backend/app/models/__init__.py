@@ -7,3 +7,4 @@ from .project import Project
 from .task import Task
 from .task_assignee import TaskAssignee
 from .activity import Activity
+from .notification import Notification

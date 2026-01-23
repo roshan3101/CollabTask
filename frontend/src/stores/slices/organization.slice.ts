@@ -71,9 +71,15 @@ export const fetchOrganizationDetail = createAsyncThunk(
 
 export const fetchOrganizationMembers = createAsyncThunk(
   "organizations/members",
-  async (orgId: string, { rejectWithValue }) => {
+  async (
+    payload: { orgId: string; includePending?: boolean },
+    { rejectWithValue }
+  ) => {
     try {
-      const response = await organizationService.getOrganizationMembers(orgId)
+      const response = await organizationService.getOrganizationMembers(
+        payload.orgId,
+        payload.includePending ?? true
+      )
       if (!response.success) {
         return rejectWithValue(response.error || response.message)
       }

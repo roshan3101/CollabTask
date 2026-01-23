@@ -33,6 +33,32 @@ export function MemberSection({
         }
     }
 
+    const getStatusBadgeVariant = (status?: string) => {
+        switch (status) {
+        case "active":
+            return "default"
+        case "pending":
+            return "secondary"
+        case "suspended":
+            return "destructive"
+        default:
+            return "outline"
+        }
+    }
+
+    const getStatusLabel = (status?: string) => {
+        switch (status) {
+        case "active":
+            return "Active"
+        case "pending":
+            return "Pending"
+        case "suspended":
+            return "Suspended"
+        default:
+            return "Unknown"
+        }
+    }
+
     const isCurrentUser = (memberEmail: string) => {
         return currentUserEmail === memberEmail
     }
@@ -45,6 +71,7 @@ export function MemberSection({
                     <TableHead>Name</TableHead>
                     <TableHead>Email</TableHead>
                     <TableHead>Role</TableHead>
+                    <TableHead>Status</TableHead>
                     {canEdit && <TableHead className="text-right">Actions</TableHead>}
                 </TableRow>
             </TableHeader>
@@ -52,7 +79,7 @@ export function MemberSection({
             <TableBody>
                 {members.length === 0 ? (
                     <TableRow>
-                        <TableCell colSpan={canEdit ? 4 : 3} className="text-center text-muted-foreground">No members yet</TableCell>
+                        <TableCell colSpan={canEdit ? 5 : 4} className="text-center text-muted-foreground">No members yet</TableCell>
                     </TableRow>
                 ) : (
                     members.map((member) => (
@@ -60,7 +87,7 @@ export function MemberSection({
                             <TableCell>{member.firstName} {member.lastName}</TableCell>
                             <TableCell>{member.email}</TableCell>
                             <TableCell>
-                                {isOwner && !isCurrentUser(member.email) ? (
+                                {isOwner && !isCurrentUser(member.email) && member.status === "active" ? (
                                     <select
                                         value={member.role || "member"}
                                         onChange={(e) => handleChangeRole(member.id, e.target.value as "member" | "admin" | "owner")}
@@ -74,6 +101,11 @@ export function MemberSection({
                                     <Badge variant={getRoleBadgeVariant(member.role)}>{member.role}</Badge>
                                 )}
                             </TableCell>
+                            <TableCell>
+                                <Badge variant={getStatusBadgeVariant(member.status)}>
+                                    {getStatusLabel(member.status)}
+                                </Badge>
+                            </TableCell>
                             {canEdit && (
                                 <TableCell className="text-right">
                                     <Button 
@@ -81,7 +113,10 @@ export function MemberSection({
                                         size="sm" 
                                         onClick={() => handleRemoveMember(member.id)} 
                                         className="text-destructive"
-                                        disabled={isCurrentUser(member.email) && member.role === "owner"}
+                                        disabled={
+                                            (isCurrentUser(member.email) && member.role === "owner") ||
+                                            member.status === "pending"
+                                        }
                                     >
                                         <X className="w-4 h-4" />
                                     </Button>

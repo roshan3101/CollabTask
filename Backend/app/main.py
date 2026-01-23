@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.routes import api_router
+from app.routes.websocket import websocket_notifications
 from app.core.lifespan import lifespan
 from app.middlewares.authentication import AuthMiddleware
 from app.observability.logging import RequestIDMiddleware
@@ -27,6 +28,8 @@ app.add_middleware(
 )
 
 app.include_router(api_router)
+
+app.websocket("/ws/notifications")(websocket_notifications)
 
 
 @app.get("/health")

@@ -1,8 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi import APIRouter, Depends, HTTPException, status, Request, Query
 from fastapi.responses import JSONResponse
 from app.dependencies import require_user, require_org_membership, require_role
 from app.utils import ApiResponse
 from app.managers.organization import OrganizationManager
+from app.managers.notification import NotificationManager
+from app.models import Organization, User
+from app.core.websocket_manager import websocket_manager
 
 router = APIRouter(
     prefix="/organizations",
@@ -64,10 +67,11 @@ async def get_organization_members(
     org_id: str,
     request: Request,
     membership=Depends(require_org_membership()),
-    role=Depends(require_role(["member", "admin", "owner"]))
+    role=Depends(require_role(["member", "admin", "owner"])),
+    include_pending: bool = Query(True, description="Include pending invitations")
 ):
 
-    members = await OrganizationManager.get_organization_members(org_id)
+    members = await OrganizationManager.get_organization_members(org_id, include_pending=include_pending)
     content = ApiResponse(
         success=True,
         message="Organization members retrieved successfully",
@@ -128,6 +132,41 @@ async def add_organization_member(
         )
 
     result = await OrganizationManager.add_member(org_id, user_email, member_role)
+    membership_id = result.get("membership_id")
+
+    org = await Organization.get_or_none(id=org_id)
+    invited_user = await User.get_or_none(email=user_email)
+    if org and invited_user:
+        inviter = request.state.user or {}
+        inviter_name = (
+            f"{inviter.get('firstName', '')} {inviter.get('lastName', '')}".strip()
+            or inviter.get("email", "Someone")
+        )
+        
+        notification = await NotificationManager.create(
+            user_id=str(invited_user.id),
+            type_val="org_invite",
+            title="Organization invite",
+            message=f"{inviter_name} invited you to {org.name}.",
+            metadata={
+                "org_id": str(org.id),
+                "org_name": org.name,
+                "inviter_name": inviter_name,
+                "membership_id": membership_id,
+            },
+        )
+        
+        notification_data = {
+            "id": str(notification.id),
+            "type": "org_invite",
+            "title": notification.title,
+            "message": notification.message,
+            "metadata": notification.metadata or {},
+            "read": notification.read,
+            "created_at": notification.created_at.isoformat() if notification.created_at else None,
+        }
+        await websocket_manager.send_notification(str(invited_user.id), notification_data)
+
     content = ApiResponse(
         success=True,
         message=result["message"]
@@ -186,6 +225,34 @@ async def leave_organization(
     content = ApiResponse(
         success=True,
         message="Successfully left the organization"
+    )
+    return JSONResponse(content=content, status_code=200)
+
+@router.post('/{org_id}/invitations/accept')
+async def accept_invitation(
+    org_id: str,
+    request: Request
+):
+    user = require_user(request)
+    user_id = str(user.get('user_id'))
+    result = await OrganizationManager.accept_invite(org_id, user_id)
+    content = ApiResponse(
+        success=True,
+        message=result["message"]
+    )
+    return JSONResponse(content=content, status_code=200)
+
+@router.post('/{org_id}/invitations/reject')
+async def reject_invitation(
+    org_id: str,
+    request: Request
+):
+    user = require_user(request)
+    user_id = str(user.get('user_id'))
+    result = await OrganizationManager.reject_invite(org_id, user_id)
+    content = ApiResponse(
+        success=True,
+        message=result["message"]
     )
     return JSONResponse(content=content, status_code=200)
 
