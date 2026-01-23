@@ -8,7 +8,15 @@ export interface Activity {
   action: string
   metadata: Record<string, any>
   user_id: string
+  user_name: string
+  entity_name: string
+  project_name?: string | null
   created_at: string
+}
+
+export interface FilterOption {
+  value: string
+  label: string
 }
 
 export interface ActivitiesResponse {
@@ -18,6 +26,10 @@ export interface ActivitiesResponse {
     page_size: number
     total: number
     total_pages: number
+  }
+  filter_options?: {
+    entity_types: FilterOption[]
+    action_types: FilterOption[]
   }
 }
 
