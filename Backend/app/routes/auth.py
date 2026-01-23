@@ -33,9 +33,15 @@ async def verify_login(request: Request):
     return JSONResponse(content=content, status_code=200)
 
 @router.post('/refresh')
-async def refresh_token(request: Request, user_context=Depends(require_user)):
+async def refresh_token(request: Request):
+    """
+    Refresh access token using a valid refresh token.
+
+    This endpoint intentionally does NOT require the Authorization header,
+    because the access token may already be expired when the client calls it.
+    """
     payload = await request.json()
-    tokens = await AuthManager.refresh_tokens(payload, user_context)
+    tokens = await AuthManager.refresh_tokens(payload)
     content = ApiResponse(success=True, message="Token refresh successful.", data=tokens)
     return JSONResponse(content=content, status_code=200)
 

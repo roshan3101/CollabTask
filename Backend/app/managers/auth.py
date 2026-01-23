@@ -88,26 +88,28 @@ class AuthManager:
         return True
     
     @classmethod
-    async def refresh_tokens(cls, payload: dict, user_context: dict):
+    async def refresh_tokens(cls, payload: dict):
         refresh_token = payload.get("refresh_token")
-        user_id = user_context.get("user_id")
+        if not refresh_token:
+            raise BadRequestException(ErrorMessages.INVALID_REFRESH_TOKEN)
 
+        claims = await JWTUtils.verify_token(refresh_token, type="refresh")
+        user_id = claims.get("sub")
         if not user_id:
             raise BadRequestException(ErrorMessages.USER_NOT_AUTHENTICATED)
-        
+
         user = await User.get_or_none(id=user_id)
         if not user:
             raise BadRequestException(ErrorMessages.USER_NOT_FOUND)
-        
+
         session = await UserSessions.get_or_none(userId=user_id, refreshToken=refresh_token)
         if not session:
             raise BadRequestException(ErrorMessages.INVALID_REFRESH_TOKEN)
-        
-        await JWTUtils.verify_token(refresh_token, type="refresh")
-        
+
         tokens = await JWTUtils.create_token_pair(user)
 
-        session.refreshToken = tokens['refresh_token']
+        # Rotate refresh token in the session
+        session.refreshToken = tokens["refresh_token"]
         await session.save()
 
         return tokens
