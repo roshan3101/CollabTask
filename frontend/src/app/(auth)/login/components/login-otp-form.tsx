@@ -54,10 +54,9 @@ export default function LoginOtpForm({ email, onVerify, onBack, isLoading, error
 
   return (
     <div className="space-y-6">
-      
       <div className="text-center space-y-2">
-        <p className="text-sm text-muted-foreground">Enter the 6-digit OTP sent to</p>
-        <p className="font-medium">{email}</p>
+        <p className="text-sm text-foreground/60">Enter the 6-digit OTP sent to</p>
+        <p className="font-medium text-foreground">{email}</p>
       </div>
 
       <Form {...form}>
@@ -84,18 +83,30 @@ export default function LoginOtpForm({ email, onVerify, onBack, isLoading, error
             )}
           />
 
-          <Button type="submit" className="w-full" disabled={isLoading || form.watch("otp").length !== 6}>
+          <Button
+            type="submit"
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold h-11 rounded-lg"
+            disabled={isLoading || form.watch("otp").length !== 6}
+          >
             {isLoading ? "Verifying..." : "Verify OTP"}
           </Button>
         </form>
       </Form>
 
       <div className="space-y-2">
-        <Button variant="outline" className="w-full bg-transparent" disabled={resendTimer > 0}>
+        <Button
+          variant="outline"
+          className="w-full border-white/20 text-foreground hover:bg-white/10 bg-transparent h-11"
+          disabled={resendTimer > 0}
+        >
           {resendTimer > 0 ? `Resend OTP in ${resendTimer}s` : "Resend OTP"}
         </Button>
         {onBack && (
-          <Button variant="ghost" className="w-full" onClick={onBack}>
+          <Button
+            variant="ghost"
+            className="w-full text-foreground hover:bg-white/10 h-11"
+            onClick={onBack}
+          >
             Back
           </Button>
         )}

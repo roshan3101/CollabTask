@@ -52,10 +52,9 @@ export default function ForgotPasswordOtpForm({ email, onVerify, isLoading, erro
 
   return (
     <div className="space-y-6">
-      
       <div className="text-center space-y-2">
-        <p className="text-sm text-muted-foreground">Enter the OTP sent to</p>
-        <p className="font-medium">{email}</p>
+        <p className="text-sm text-foreground/60">Enter the OTP sent to</p>
+        <p className="font-medium text-foreground">{email}</p>
       </div>
 
       <Form {...form}>
@@ -82,13 +81,21 @@ export default function ForgotPasswordOtpForm({ email, onVerify, isLoading, erro
             )}
           />
 
-          <Button type="submit" className="w-full" disabled={isLoading || form.watch("otp").length !== 6}>
+          <Button
+            type="submit"
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold h-11 rounded-lg"
+            disabled={isLoading || form.watch("otp").length !== 6}
+          >
             {isLoading ? "Verifying..." : "Verify OTP"}
           </Button>
         </form>
       </Form>
 
-      <Button variant="outline" className="w-full bg-transparent" disabled={resendTimer > 0}>
+      <Button
+        variant="outline"
+        className="w-full border-white/20 text-foreground hover:bg-white/10 bg-transparent h-11"
+        disabled={resendTimer > 0}
+      >
         {resendTimer > 0 ? `Resend OTP in ${resendTimer}s` : "Resend OTP"}
       </Button>
     </div>

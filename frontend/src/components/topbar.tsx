@@ -34,7 +34,7 @@ export default function Topbar() {
   const handleLogout = async () => {
     try {
       await dispatch(logout()).unwrap()
-      router.push("/login")
+      router.push("/")
     } catch (err) {
       const message = typeof err === "string" ? err : "Failed to logout. Please try again."
       toast.error(message)
