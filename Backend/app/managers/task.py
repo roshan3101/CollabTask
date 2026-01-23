@@ -53,20 +53,28 @@ class TaskManager:
                     raise NotFoundException(ErrorMessages.ASSIGNEE_NOT_FOUND)
                 await TaskAssignee.create(task=task, user=assignee)
 
-        # Log activity
-        task_data = {
-            'title': validated_data.title,
-            'description': validated_data.description,
-            'status': validated_data.status,
-            'assignee_ids': validated_data.assignee_ids
-        }
-        await ActivityManager.log_task_created(
-            str(task.id),
-            project_id,
-            str(project.org_id),
-            user_id,
-            task_data
-        )
+        # Log activity (non-blocking - don't fail the request if logging fails)
+        org_id = str(project.org_id)
+        try:
+            from app.models.activity import ActionType, EntityType
+            await ActivityManager.create_activity(
+                org_id=org_id,
+                user_id=user_id,
+                entity_type=EntityType.TASK.value,
+                entity_id=str(task.id),
+                action=ActionType.TASK_CREATED.value,
+                metadata={
+                    'title': validated_data.title,
+                    'description': validated_data.description,
+                    'status': validated_data.status,
+                    'assignee_ids': validated_data.assignee_ids
+                }
+            )
+        except Exception as e:
+            # Log the error but don't fail the request - task was already created
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Failed to log task creation activity: {e}", exc_info=True)
 
         result = await TaskSerializer.from_orm(task)
         return result.dict()
@@ -146,18 +154,41 @@ class TaskManager:
                 setattr(task, key, value)
             await task.save()
 
-            # Log activities for changes
+            # Log activities for changes (non-blocking)
             org_id = str(task.project.org_id)
+            try:
+                from app.models.activity import ActionType, EntityType
+                
+                if 'title' in update_data and update_data['title'] != old_title:
+                    await ActivityManager.create_activity(
+                        org_id=org_id,
+                        user_id=user_id,
+                        entity_type=EntityType.TASK.value,
+                        entity_id=task_id,
+                        action=ActionType.TASK_TITLE_UPDATED.value,
+                        metadata={
+                            'old_title': old_title,
+                            'new_title': update_data['title']
+                        }
+                    )
 
-            if 'title' in update_data and update_data['title'] != old_title:
-                await ActivityManager.log_task_title_updated(
-                    task_id, org_id, user_id, old_title, update_data['title']
-                )
-
-            if 'description' in update_data and update_data['description'] != old_description:
-                await ActivityManager.log_task_description_updated(
-                    task_id, org_id, user_id, old_description or '', update_data['description'] or ''
-                )
+                if 'description' in update_data and update_data['description'] != old_description:
+                    await ActivityManager.create_activity(
+                        org_id=org_id,
+                        user_id=user_id,
+                        entity_type=EntityType.TASK.value,
+                        entity_id=task_id,
+                        action=ActionType.TASK_DESCRIPTION_UPDATED.value,
+                        metadata={
+                            'old_description': old_description or '',
+                            'new_description': update_data['description'] or ''
+                        }
+                    )
+            except Exception as e:
+                # Log the error but don't fail the request - task was already updated
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.error(f"Failed to log task update activity: {e}", exc_info=True)
 
         result = await TaskSerializer.from_orm(task)
         return result.dict()
@@ -195,9 +226,25 @@ class TaskManager:
                 if not assignee:
                     raise NotFoundException(ErrorMessages.ASSIGNEE_NOT_FOUND)
                 await TaskAssignee.create(task=task, user=assignee)
-                # Log activity for each assignment
+                # Log activity for each assignment (non-blocking)
                 org_id = str(task.project.org_id)
-                await ActivityManager.log_task_assigned(task_id, org_id, user_id, str(assignee_id))
+                try:
+                    from app.models.activity import ActionType, EntityType
+                    await ActivityManager.create_activity(
+                        org_id=org_id,
+                        user_id=user_id,
+                        entity_type=EntityType.TASK.value,
+                        entity_id=task_id,
+                        action=ActionType.TASK_ASSIGNED.value,
+                        metadata={
+                            'assignee_id': str(assignee_id)
+                        }
+                    )
+                except Exception as e:
+                    # Log the error but don't fail the request - assignment was already made
+                    import logging
+                    logger = logging.getLogger(__name__)
+                    logger.error(f"Failed to log task assignment activity: {e}", exc_info=True)
 
         task.version = task.version + 1
         await task.save()

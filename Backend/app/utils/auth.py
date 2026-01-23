@@ -10,6 +10,7 @@ from app.models.auth import Auth
 from app.core import settings
 from app.constants import ErrorMessages, GeneralConstants
 from app.constants import AuthConstants
+from app.tasks.email_tasks import send_otp_email_task
 
 class OTPUtils:
     @classmethod
@@ -42,8 +43,8 @@ class OTPUtils:
     
     @classmethod
     async def _send_otp_via_email(cls, email: str, otp: str):
-        # Placeholder for sending OTP via email
-        print(f"Sending OTP {otp} to email {email}")
+        
+        send_otp_email_task.delay(email, otp, AuthConstants.OTP_EXPIRY_TIME)
 
     @classmethod
     def _generate_otp(cls) -> str:
