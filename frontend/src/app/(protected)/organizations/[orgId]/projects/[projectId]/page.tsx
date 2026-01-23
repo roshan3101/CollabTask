@@ -253,6 +253,9 @@ export default function ProjectDetailPage() {
                 router.push(`/organizations/${orgId}/projects/${projectId}/new`)
               }
               onStatusChange={async (task: Task, newStatus: TaskStatus) => {
+                // Optimistically update UI immediately for better UX
+                const optimisticTask = { ...task, status: newStatus }
+                
                 try {
                   await dispatch(
                     changeTaskStatus({
@@ -263,11 +266,18 @@ export default function ProjectDetailPage() {
                       version: task.version,
                     })
                   ).unwrap()
+                  // Refresh tasks list to get latest state from server
                   dispatch(fetchTasks({ orgId, projectId, params: { page_size: 100 } }))
                 } catch (err) {
+                  // If error, refresh tasks to sync with server (task might have been updated despite error)
+                  dispatch(fetchTasks({ orgId, projectId, params: { page_size: 100 } }))
+                  
                   const message =
                     typeof err === "string" ? err : "Failed to update task status"
-                  toast.error(message)
+                  // Only show error if it's not a version conflict (which is handled by refresh)
+                  if (!message.toLowerCase().includes("version") && !message.toLowerCase().includes("conflict")) {
+                    toast.error(message)
+                  }
                 }
               }}
             />

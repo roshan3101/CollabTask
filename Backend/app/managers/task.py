@@ -236,10 +236,27 @@ class TaskManager:
         task.version = task.version + 1
         await task.save()
 
-        # Log activity
+        # Log activity (non-blocking - don't fail the request if logging fails)
         org_id = str(task.project.org_id)
         if old_status != validated_data.status:
-            await ActivityManager.log_task_status_changed(task_id, org_id, user_id, old_status, validated_data.status)
+            try:
+                from app.models.activity import ActionType, EntityType
+                await ActivityManager.create_activity(
+                    org_id=org_id,
+                    user_id=user_id,
+                    entity_type=EntityType.TASK.value,
+                    entity_id=task_id,
+                    action=ActionType.TASK_STATUS_CHANGED.value,
+                    metadata={
+                        "old_status": old_status,
+                        "new_status": validated_data.status,
+                    }
+                )
+            except Exception as e:
+                # Log the error but don't fail the request - task was already updated
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.error(f"Failed to log task status change activity: {e}", exc_info=True)
 
         result = await TaskSerializer.from_orm(task)
         return result.dict()
