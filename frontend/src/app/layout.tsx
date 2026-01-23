@@ -39,7 +39,7 @@ export default function RootLayout({
         >
           <ReduxProvider>
             {children}
-            <Toaster />  
+            <Toaster position="top-right" richColors />  
           </ReduxProvider>
         </ThemeProvider>
       </body>
