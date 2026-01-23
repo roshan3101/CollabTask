@@ -1,26 +1,23 @@
 "use client"
 
-import { useState, useMemo } from "react"
-import { useRouter } from "next/navigation"
+import { useEffect, useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon } from "lucide-react"
+import { ChevronLeft, ChevronRight } from "lucide-react"
+import { meetingService } from "@/services/meeting.service"
+import type { Meeting } from "@/types/meeting"
 
-// Dummy events data
-const DUMMY_EVENTS: Array<{
+interface CalendarEvent {
   id: string
   title: string
   date: Date
   color: string
-}> = [
-  { id: "1", title: "Team Meeting", date: new Date(2024, 0, 15), color: "bg-blue-500" },
-  { id: "2", title: "Project Review", date: new Date(2024, 0, 20), color: "bg-green-500" },
-  { id: "3", title: "Sprint Planning", date: new Date(2024, 0, 25), color: "bg-purple-500" },
-]
+}
 
 export default function CalendarPage() {
-  const router = useRouter()
   const [currentDate, setCurrentDate] = useState(new Date())
+  const [meetings, setMeetings] = useState<Meeting[]>([])
+  const [isLoading, setIsLoading] = useState(true)
 
   const year = currentDate.getFullYear()
   const month = currentDate.getMonth()
@@ -46,6 +43,35 @@ export default function CalendarPage() {
   ]
 
   const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+
+  useEffect(() => {
+    const load = async () => {
+      setIsLoading(true)
+      try {
+        const res = await meetingService.listMyMeetings()
+        if (res.success && res.data) {
+          setMeetings(res.data)
+        }
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    void load()
+  }, [])
+
+  const events: CalendarEvent[] = useMemo(() => {
+    const colors = ["bg-blue-500", "bg-green-500", "bg-purple-500", "bg-pink-500"]
+    return meetings.map((m, index) => {
+      const start = new Date(m.start_time)
+      return {
+        id: m.id,
+        title: m.title,
+        date: start,
+        color: colors[index % colors.length],
+      }
+    })
+  }, [meetings])
 
   const navigateMonth = (direction: "prev" | "next") => {
     setCurrentDate((prev) => {
@@ -76,11 +102,11 @@ export default function CalendarPage() {
   }, [currentDate])
 
   const getEventsForDate = (date: Date) => {
-    return DUMMY_EVENTS.filter(
+    return events.filter(
       (event) =>
         event.date.getDate() === date.getDate() &&
         event.date.getMonth() === date.getMonth() &&
-        event.date.getFullYear() === date.getFullYear()
+        event.date.getFullYear() === date.getFullYear(),
     )
   }
 
@@ -95,7 +121,6 @@ export default function CalendarPage() {
 
   const renderCalendarDays = () => {
     const days = []
-    const today = new Date()
 
     // Add empty cells for days before the first day of the month
     for (let i = 0; i < startingDayOfWeek; i++) {
@@ -179,12 +204,18 @@ export default function CalendarPage() {
                 <ChevronRight className="w-4 h-4" />
               </Button>
             </div>
+            {isLoading && (
+              <span className="text-xs text-muted-foreground">Loading meetings...</span>
+            )}
           </div>
 
           {/* Day Names Header */}
           <div className="grid grid-cols-7 gap-0.5 mb-1">
             {dayNames.map((day) => (
-              <div key={day} className="text-center text-xs font-medium text-muted-foreground py-1">
+              <div
+                key={day}
+                className="text-center text-xs font-medium text-muted-foreground py-1"
+              >
                 {day}
               </div>
             ))}

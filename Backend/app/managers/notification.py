@@ -17,7 +17,15 @@ class NotificationManager:
         metadata: Optional[Dict] = None,
     ) -> Notification:
         user_id = Validator.validate_uuid(user_id, "user_id")
-        type_val = Validator.validate_enum(type_val, [NotificationType.ORG_INVITE.value], "type")
+        type_val = Validator.validate_enum(
+            type_val,
+            [
+                NotificationType.ORG_INVITE.value,
+                NotificationType.MEETING.value,
+                NotificationType.CHAT.value,
+            ],
+            "type",
+        )
         title = Validator.validate_non_empty_string(title, "title", max_length=512)
         message = Validator.validate_non_empty_string(message, "message")
 

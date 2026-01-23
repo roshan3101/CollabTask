@@ -23,6 +23,7 @@ import { ProjectActions } from "./components/project-actions"
 import { KanbanBoard } from "./components/kanban-board"
 import { TaskListView } from "./components/task-list-view"
 import { ProjectSettings } from "./components/project-settings"
+import { ProjectComments } from "./components/project-comments"
 import type { ViewType } from "./components/project-actions"
 import type { CreateTaskInput, Task, TaskStatus } from "@/types/task"
 import { changeTaskStatus } from "@/stores/slices/task.slice"
@@ -295,6 +296,8 @@ export default function ProjectDetailPage() {
           isSaving={isSaving}
         />
       )}
+
+      <ProjectComments />
 
       <DeleteModal
         open={isDeleteModalOpen}

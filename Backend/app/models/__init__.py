@@ -8,3 +8,5 @@ from .task import Task
 from .task_assignee import TaskAssignee
 from .activity import Activity
 from .notification import Notification
+from .meeting import Meeting
+from .comment import Comment

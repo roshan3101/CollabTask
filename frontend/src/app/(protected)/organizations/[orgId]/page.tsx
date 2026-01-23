@@ -17,9 +17,10 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
 import { Button } from "@/components/ui/button"
-import { ArrowLeft, Activity } from "lucide-react"
+import { ArrowLeft, Activity, CalendarPlus } from "lucide-react"
 import { toast } from "sonner"
 import { MembersList } from "./components/members-list"
+import { MeetingModal } from "@/components/meeting-modal"
 
 interface OrganizationAnalytics {
   total_projects: number
@@ -40,6 +41,7 @@ export default function OrganizationDetailPage() {
   )
 
   const [analytics, setAnalytics] = useState<OrganizationAnalytics | null>(null)
+  const [isMeetingModalOpen, setIsMeetingModalOpen] = useState(false)
   const [isLoadingAnalytics, setIsLoadingAnalytics] = useState(false)
 
   useEffect(() => {
@@ -141,18 +143,22 @@ export default function OrganizationDetailPage() {
               Settings
             </Button>
           )}
-            <Button variant="outline" onClick={() => router.push(`/organizations/${orgId}/projects`)}>
-              Projects
+          <Button variant="outline" onClick={() => router.push(`/organizations/${orgId}/projects`)}>
+            Projects
+          </Button>
+          {(activeOrganization?.role === "admin" || activeOrganization?.role === "owner") && (
+            <Button
+              variant="outline"
+              onClick={() => router.push(`/organizations/${orgId}/activities`)}
+            >
+              <Activity className="w-4 h-4 mr-2" />
+              Activity Log
             </Button>
-            {(activeOrganization?.role === "admin" || activeOrganization?.role === "owner") && (
-              <Button
-                variant="outline"
-                onClick={() => router.push(`/organizations/${orgId}/activities`)}
-              >
-                <Activity className="w-4 h-4 mr-2" />
-                Activity Log
-              </Button>
-            )}
+          )}
+          <Button variant="outline" onClick={() => setIsMeetingModalOpen(true)}>
+            <CalendarPlus className="w-4 h-4 mr-2" />
+            Schedule meeting
+          </Button>
         </div>
       </div>
 
@@ -165,6 +171,13 @@ export default function OrganizationDetailPage() {
           {/* Right side can be used for other content in the future */}
         </div>
       </div>
+
+      <MeetingModal
+        orgId={orgId}
+        open={isMeetingModalOpen}
+        onOpenChange={setIsMeetingModalOpen}
+        members={members}
+      />
     </div>
   )
 }

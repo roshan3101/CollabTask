@@ -32,12 +32,7 @@ class ProjectManager:
     async def list_all_projects(cls, payload: dict, membership, role: str):
         org_id = membership.organizationId
 
-        query = Project.filter(org_id=org_id, is_archieved=False)
-
-        if role not in ["admin", "owner"]:
-            query = query.filter(created_by_id=membership.userId)
-
-        projects = await query
+        projects = await Project.filter(org_id=org_id, is_archieved=False)
         return [ProjectSerializer.from_orm(project).dict() for project in projects]
 
     @classmethod

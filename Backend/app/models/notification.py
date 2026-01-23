@@ -6,6 +6,8 @@ import uuid
 
 class NotificationType(str, Enum):
     ORG_INVITE = "org_invite"
+    MEETING = "meeting"
+    CHAT = "chat"
 
 class Notification(Model):
     id = fields.UUIDField(pk=True, default=uuid.uuid4)

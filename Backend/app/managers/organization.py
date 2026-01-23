@@ -1,5 +1,6 @@
-from app.models import Organization, Membership, User, Project, Task, TaskAssignee
+from app.models import Organization, Membership, User, Project, Task, TaskAssignee, Notification
 from app.models.membership import MembershipRole, MembershipStatus
+from app.models.notification import NotificationType
 from app.exceptions import BadRequestException
 from app.schemas.organization import CREATE_ORGANIZATION_SCHEMA, UPDATE_ORGANIZATION_SCHEMA, OrganizationSerializer
 from tortoise.transactions import in_transaction
@@ -309,6 +310,18 @@ class OrganizationManager:
         membership.status = MembershipStatus.ACTIVE
         await membership.save()
 
+        # Mark related org_invite notifications as accepted
+        notifications = await Notification.filter(
+            user_id=user_id,
+            type=NotificationType.ORG_INVITE,
+            metadata__contains={"org_id": org_id},
+        )
+        for n in notifications:
+            meta = n.metadata or {}
+            meta["invite_status"] = "accepted"
+            n.metadata = meta
+            await n.save()
+
         return {"message": "Invitation accepted successfully."}
 
     @classmethod
@@ -326,5 +339,17 @@ class OrganizationManager:
             raise BadRequestException("No pending invitation found for this organization.")
 
         await membership.delete()
+
+        # Mark related org_invite notifications as rejected
+        notifications = await Notification.filter(
+            user_id=user_id,
+            type=NotificationType.ORG_INVITE,
+            metadata__contains={"org_id": org_id},
+        )
+        for n in notifications:
+            meta = n.metadata or {}
+            meta["invite_status"] = "rejected"
+            n.metadata = meta
+            await n.save()
 
         return {"message": "Invitation rejected successfully."}

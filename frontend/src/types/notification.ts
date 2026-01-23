@@ -1,10 +1,22 @@
-export type NotificationType = "org_invite"
+export type NotificationType = "org_invite" | "meeting" | "chat"
 
 export interface NotificationMetadata {
   org_id?: string
   org_name?: string
   inviter_name?: string
   membership_id?: string
+  meeting_id?: string
+  title?: string
+  start_time?: string
+  end_time?: string
+  google_meet_link?: string
+  created_by_name?: string
+  project_id?: string
+  project_name?: string
+  sender_id?: string
+  sender_name?: string
+  message_preview?: string
+  invite_status?: "accepted" | "rejected"
 }
 
 export interface Notification {
