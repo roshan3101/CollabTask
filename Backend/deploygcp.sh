@@ -105,18 +105,32 @@ build_and_push_gcp() {
         return 1
     fi
     
+    echo -e "${YELLOW}Checking Docker...${NC}"
+    if ! docker info >/dev/null 2>&1; then
+        echo -e "${RED}Error: Docker is not running.${NC}"
+        echo -e "  Start Docker Desktop (Windows/Mac) or the Docker daemon (Linux), then retry.\n"
+        return 1
+    fi
+    echo "  ✓ Docker OK"
+    
     IMAGE_TAG=$(date +%Y%m%d-%H%M%S)
     IMAGE_NAME="$REGION-docker.pkg.dev/$PROJECT_ID/collabtask-repo/collabtask-backend:$IMAGE_TAG"
     
     echo -e "${YELLOW}Building image...${NC}"
-    docker build -f Dockerfile.production -t $IMAGE_NAME .
+    if ! docker build -f Dockerfile.production -t $IMAGE_NAME .; then
+        echo -e "${RED}✗ Docker build failed${NC}\n"
+        return 1
+    fi
     echo "  ✓ Image built"
     
-    echo -e "\n${YELLOW}Configuring Docker for GCR...${NC}"
-    gcloud auth configure-docker $REGION-docker.pkg.dev
+    echo -e "\n${YELLOW}Configuring Docker for Artifact Registry...${NC}"
+    gcloud auth configure-docker $REGION-docker.pkg.dev --quiet
     
     echo -e "\n${YELLOW}Pushing image...${NC}"
-    docker push $IMAGE_NAME
+    if ! docker push $IMAGE_NAME; then
+        echo -e "${RED}✗ Docker push failed. Image not in Artifact Registry. Fix push errors and retry.${NC}\n"
+        return 1
+    fi
     echo "  ✓ Image pushed"
     
     echo "$IMAGE_NAME" > .last-gcp-image
@@ -140,9 +154,18 @@ deploy_backend_gcp() {
     if [ -f ".last-gcp-image" ]; then
         IMAGE_NAME=$(cat .last-gcp-image)
     else
-        echo -e "${RED}Error: No image found. Run option 2 first.${NC}"
+        echo -e "${RED}Error: No image found. Run option 2 (Build & Push) first, or option 7 (Full Deployment).${NC}\n"
         return 1
     fi
+    
+    echo -e "${YELLOW}Verifying image exists in Artifact Registry...${NC}"
+    if ! gcloud artifacts docker images describe "$IMAGE_NAME" --quiet >/dev/null 2>&1; then
+        echo -e "${RED}Error: Image not found in Artifact Registry:${NC}"
+        echo -e "  $IMAGE_NAME"
+        echo -e "\n${YELLOW}Run option 2 (Build & Push) first, or option 7 (Full Deployment).${NC}\n"
+        return 1
+    fi
+    echo "  ✓ Image found"
     
     # Prepare environment variables
     ENV_VARS="ENVIRONMENT=production"
@@ -325,7 +348,7 @@ delete_celery_service() {
 
 full_deployment_gcp() {
     echo -e "${GREEN}=== Full GCP Deployment ===${NC}\n"
-    build_and_push_gcp
+    build_and_push_gcp || return 1
     echo ""
     deploy_backend_gcp
 }
