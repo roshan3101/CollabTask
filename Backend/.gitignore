@@ -6,6 +6,9 @@ __pycache__/
 # C extensions
 *.so
 
+.last-gcp-image
+.gcp-config
+
 .env.prod
 task-definition-backend.json
 task-definition-celery.json
