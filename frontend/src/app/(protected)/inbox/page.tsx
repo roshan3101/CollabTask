@@ -91,7 +91,11 @@ export default function InboxPage() {
 
   const handleNotificationClick = async (n: Notification) => {
     await handleMarkRead(n)
-    if (n.type === "org_invite" && n.metadata?.org_id) {
+    if (
+      n.type === "org_invite" &&
+      n.metadata?.org_id &&
+      n.metadata.invite_status !== "rejected"
+    ) {
       router.push(`/organizations/${n.metadata.org_id}`)
     }
   }
@@ -103,8 +107,16 @@ export default function InboxPage() {
     const res = await organizationService.acceptInvitation(n.metadata.org_id)
     if (res.success) {
       toast.success("Invitation accepted successfully")
-      setNotifications((prev) => prev.filter((x) => x.id !== n.id))
-      markAsReadSocket(n.id)
+      const updated: Notification = {
+        ...n,
+        read: true,
+        metadata: { ...n.metadata, invite_status: "accepted" },
+      }
+      setNotifications((prev) =>
+        prev.map((x) => (x.id === n.id ? updated : x))
+      )
+      const markRes = await notificationService.markRead(n.id)
+      if (markRes.success) markAsReadSocket(n.id)
       router.push(`/organizations/${n.metadata.org_id}`)
     } else {
       toast.error(res.message || "Failed to accept invitation")
@@ -118,8 +130,16 @@ export default function InboxPage() {
     const res = await organizationService.rejectInvitation(n.metadata.org_id)
     if (res.success) {
       toast.success("Invitation rejected")
-      setNotifications((prev) => prev.filter((x) => x.id !== n.id))
-      markAsReadSocket(n.id)
+      const updated: Notification = {
+        ...n,
+        read: true,
+        metadata: { ...n.metadata, invite_status: "rejected" },
+      }
+      setNotifications((prev) =>
+        prev.map((x) => (x.id === n.id ? updated : x))
+      )
+      const markRes = await notificationService.markRead(n.id)
+      if (markRes.success) markAsReadSocket(n.id)
     } else {
       toast.error(res.message || "Failed to reject invitation")
     }
@@ -251,29 +271,43 @@ export default function InboxPage() {
                       : ""}
                   </p>
                   {n.type === "org_invite" && n.metadata?.org_id && (
-                    <div className="flex gap-2 mt-3">
-                      <Button
-                        size="sm"
-                        variant="default"
-                        onClick={(e) => handleAcceptInvite(n, e)}
-                        className="h-8 text-xs"
-                      >
-                        <Check className="w-3 h-3 mr-1" />
-                        Accept
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={(e) => handleRejectInvite(n, e)}
-                        className="h-8 text-xs"
-                      >
-                        <X className="w-3 h-3 mr-1" />
-                        Reject
-                      </Button>
+                    <div className="flex gap-2 mt-3 items-center">
+                      {n.metadata.invite_status === "accepted" ? (
+                        <Badge variant="default" className="text-xs font-medium">
+                          <Check className="w-3 h-3 mr-1" />
+                          You accepted
+                        </Badge>
+                      ) : n.metadata.invite_status === "rejected" ? (
+                        <Badge variant="secondary" className="text-xs font-medium">
+                          <X className="w-3 h-3 mr-1" />
+                          You rejected
+                        </Badge>
+                      ) : (
+                        <>
+                          <Button
+                            size="sm"
+                            variant="default"
+                            onClick={(e) => handleAcceptInvite(n, e)}
+                            className="h-8 text-xs"
+                          >
+                            <Check className="w-3 h-3 mr-1" />
+                            Accept
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={(e) => handleRejectInvite(n, e)}
+                            className="h-8 text-xs"
+                          >
+                            <X className="w-3 h-3 mr-1" />
+                            Reject
+                          </Button>
+                        </>
+                      )}
                     </div>
                   )}
                 </div>
-                {n.type === "org_invite" && n.metadata?.org_id && !n.read && (
+                {n.type === "org_invite" && n.metadata?.org_id && !n.read && !n.metadata?.invite_status && (
                   <ChevronRight className="w-5 h-5 text-muted-foreground shrink-0 mt-1" />
                 )}
               </CardContent>

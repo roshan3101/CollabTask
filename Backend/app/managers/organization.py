@@ -311,11 +311,11 @@ class OrganizationManager:
         await membership.save()
 
         # Mark related org_invite notifications as accepted
-        notifications = await Notification.filter(
+        all_invites = await Notification.filter(
             user_id=user_id,
             type=NotificationType.ORG_INVITE,
-            metadata__contains={"org_id": org_id},
         )
+        notifications = [n for n in all_invites if (n.metadata or {}).get("org_id") == org_id]
         for n in notifications:
             meta = n.metadata or {}
             meta["invite_status"] = "accepted"
@@ -341,11 +341,11 @@ class OrganizationManager:
         await membership.delete()
 
         # Mark related org_invite notifications as rejected
-        notifications = await Notification.filter(
+        all_invites = await Notification.filter(
             user_id=user_id,
             type=NotificationType.ORG_INVITE,
-            metadata__contains={"org_id": org_id},
         )
+        notifications = [n for n in all_invites if (n.metadata or {}).get("org_id") == org_id]
         for n in notifications:
             meta = n.metadata or {}
             meta["invite_status"] = "rejected"
