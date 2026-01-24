@@ -19,11 +19,14 @@ async def init_observability(*args, **kwargs):
     setup_logging()
 
 async def init_redis(*args, **kwargs):
-    is_connected = await redis_client.ping()
-    if is_connected:
-        logger.info("Redis connection established")
-    else:
-        logger.warning("Redis connection failed - some features may not work")
+    try:
+        is_connected = await redis_client.ping()
+        if is_connected:
+            logger.info("Redis connection established")
+        else:
+            logger.warning("Redis connection failed - caching disabled")
+    except Exception as e:
+        logger.warning(f"Redis not available: {e} - caching disabled")
 
 
 on_startup = [

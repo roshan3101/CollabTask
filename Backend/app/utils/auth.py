@@ -1,4 +1,5 @@
 import random
+import logging
 from app.models.user import User
 import jwt
 from uuid import uuid4
@@ -10,7 +11,9 @@ from app.models.auth import Auth
 from app.core import settings
 from app.constants import ErrorMessages, GeneralConstants
 from app.constants import AuthConstants
-from app.tasks.email_tasks import send_otp_email_task
+from app.services.email_service import email_service
+
+logger = logging.getLogger(__name__)
 
 class OTPUtils:
     @classmethod
@@ -43,8 +46,12 @@ class OTPUtils:
     
     @classmethod
     async def _send_otp_via_email(cls, email: str, otp: str):
-        
-        send_otp_email_task.delay(email, otp, AuthConstants.OTP_EXPIRY_TIME)
+        # Send email directly (synchronously in the request)
+        try:
+            await email_service.send_otp_email(email, otp, AuthConstants.OTP_EXPIRY_TIME)
+        except Exception as e:
+            logger.error(f"Failed to send OTP email to {email}: {e}")
+            # Don't raise - allow signup to continue even if email fails
 
     @classmethod
     def _generate_otp(cls) -> str:

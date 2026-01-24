@@ -8,6 +8,9 @@ class AuthMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         request.state.user = None
 
+        if request.scope.get("type") == "websocket":
+            return await call_next(request)
+
         if request.method == "OPTIONS":
             return await call_next(request)
 

@@ -47,6 +47,9 @@ def set_request_id(request_id: str):
 class RequestIDMiddleware(BaseHTTPMiddleware):
     
     async def dispatch(self, request: Request, call_next):
+        if request.scope.get("type") == "websocket":
+            return await call_next(request)
+            
         request_id = request.headers.get("X-Request-ID") or str(uuid.uuid4())
         set_request_id(request_id)
         
