@@ -13,6 +13,7 @@ router = APIRouter(
     tags=['common_for_org_and_project']
 )
 
+@router.get("")
 @router.get("/")
 async def list_projects(
     request:Request,

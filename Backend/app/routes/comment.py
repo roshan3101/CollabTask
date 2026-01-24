@@ -12,6 +12,7 @@ router = APIRouter(
 )
 
 
+@router.get("")
 @router.get("/")
 async def list_comments(
     org_id: str,
@@ -29,6 +30,7 @@ async def list_comments(
     return JSONResponse(content=content, status_code=200)
 
 
+@router.post("")
 @router.post("/")
 async def create_comment(
     org_id: str,

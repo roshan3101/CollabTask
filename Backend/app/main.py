@@ -7,7 +7,7 @@ from app.core.config import settings
 from app.middlewares.authentication import AuthMiddleware
 from app.observability.logging import RequestIDMiddleware
 
-app = FastAPI(lifespan=lifespan)
+app = FastAPI(lifespan=lifespan, redirect_slashes=False)
 
 app.add_middleware(AuthMiddleware)
 

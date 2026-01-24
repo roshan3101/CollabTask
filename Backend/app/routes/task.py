@@ -11,6 +11,7 @@ router = APIRouter(
     tags=["Tasks"]
 )
 
+@router.post('')
 @router.post('/')
 async def create_task(
     org_id: str,
@@ -28,6 +29,7 @@ async def create_task(
     content = ApiResponse(success=True, message="Task created successfully", data=result)
     return JSONResponse(content=content, status_code=201)
 
+@router.get('')
 @router.get('/')
 async def list_tasks(
     org_id: str,

@@ -10,6 +10,7 @@ router = APIRouter(
     tags=["Search"]
 )
 
+@router.get("")
 @router.get("/")
 async def search(
     request: Request,

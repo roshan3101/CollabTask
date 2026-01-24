@@ -11,6 +11,7 @@ router = APIRouter(
 )
 
 
+@router.get("")
 @router.get("/")
 async def list_notifications(
     user=Depends(require_user),

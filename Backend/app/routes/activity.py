@@ -10,6 +10,7 @@ router = APIRouter(
     tags=["Activities"]
 )
 
+@router.get("")
 @router.get("/")
 async def get_organization_activities(
     org_id: str,

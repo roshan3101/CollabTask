@@ -13,6 +13,7 @@ router = APIRouter(
 )
 
 
+@router.post('')
 @router.post('/')
 async def create_organization(request: Request, user=Depends(require_user)):
     payload = await request.json()
@@ -24,6 +25,7 @@ async def create_organization(request: Request, user=Depends(require_user)):
     )
     return JSONResponse(content=content, status_code=201)
 
+@router.get('')
 @router.get('/')
 async def get_user_organizations(request: Request, user=Depends(require_user)):
 

@@ -9,6 +9,7 @@ router = APIRouter(
     tags=["Projects"]
 )
 
+@router.post('')
 @router.post('/')
 async def create_project(
     org_id: str,
@@ -21,6 +22,7 @@ async def create_project(
     content = ApiResponse(success=True, message="Project created successfully", data=result)
     return JSONResponse(content=content, status_code=201)
 
+@router.get('')
 @router.get('/')
 async def list_projects(
     org_id: str,

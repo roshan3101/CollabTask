@@ -414,7 +414,8 @@ class TaskManager:
         if not membership:
             raise ForbiddenException(ErrorMessages.NO_PROJECT_ACCESS)
 
-        if require_write and membership.role not in ["admin", "owner"]:
+
+        if require_write and membership.role not in ["member", "admin", "owner"]:
             raise ForbiddenException(ErrorMessages.INSUFFICIENT_PERMISSIONS)
 
         return project, membership
