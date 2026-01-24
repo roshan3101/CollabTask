@@ -29,5 +29,8 @@ class Config:
         
         self.CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", f"redis://{self.REDIS_HOST}:{self.REDIS_PORT}/{self.REDIS_DB}")
         self.CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND", f"redis://{self.REDIS_HOST}:{self.REDIS_PORT}/{self.REDIS_DB}")
+        
+        cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000")
+        self.CORS_ORIGINS = [origin.strip() for origin in cors_origins.split(",") if origin.strip()]
 
 settings = Config()

@@ -50,11 +50,12 @@ export function AddMemberDialog({
       if (response.success) {
         toast.success("Member added successfully")
         onOpenChange(false)
-        await dispatch(fetchOrganizationMembers(organization.id))
+        await dispatch(fetchOrganizationMembers({ orgId: organization.id }))
       } else {
         toast.error(response.error || response.message)
       }
     } catch (err) {
+        toast.error("Failed to add member")
       toast.error("Failed to add member")
     }
   }

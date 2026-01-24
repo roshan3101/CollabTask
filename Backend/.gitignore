@@ -6,6 +6,10 @@ __pycache__/
 # C extensions
 *.so
 
+.env.prod
+task-definition-backend.json
+task-definition-celery.json
+
 # Distribution / packaging
 .Python
 build/

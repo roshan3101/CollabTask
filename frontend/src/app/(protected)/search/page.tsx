@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useAppDispatch } from "@/stores/hooks"
 import { searchService } from "@/services/search.service"
@@ -20,7 +20,7 @@ import { Search, TagsIcon , FolderKanban, Building2, Loader2 } from "lucide-reac
 import { toast } from "sonner"
 import type { SearchResult } from "@/services/search.service"
 
-export default function SearchPage() {
+function SearchPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const dispatch = useAppDispatch()
@@ -276,5 +276,35 @@ export default function SearchPage() {
         </Card>
       )}
     </div>
+  )
+}
+
+export default function SearchPage() {
+  return (
+    <Suspense fallback={
+      <div className="space-y-6">
+        <Breadcrumb>
+          <BreadcrumbList>
+            <BreadcrumbItem>
+              <BreadcrumbLink href="/dashboard">Dashboard</BreadcrumbLink>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem>
+              <BreadcrumbPage>Search</BreadcrumbPage>
+            </BreadcrumbItem>
+          </BreadcrumbList>
+        </Breadcrumb>
+        <div>
+          <h1 className="text-3xl font-bold mb-2">Search</h1>
+          <p className="text-muted-foreground">Search across tasks, projects, and organizations</p>
+        </div>
+        <div className="text-center py-12 text-muted-foreground">
+          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2" />
+          Loading...
+        </div>
+      </div>
+    }>
+      <SearchPageContent />
+    </Suspense>
   )
 }

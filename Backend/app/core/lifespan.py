@@ -32,9 +32,12 @@ on_startup = [
     init_redis,
 ]
 
+async def close_redis(*args, **kwargs):
+    await redis_client.close()
+
 on_shutdown = [
     close_db,
-    redis_client.close,
+    close_redis,
 ]
 
 @asynccontextmanager

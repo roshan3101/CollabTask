@@ -164,7 +164,7 @@ export const deleteTask = createAsyncThunk(
 export const fetchMyTasks = createAsyncThunk(
   "tasks/myTasks",
   async (
-    params?: {
+    params: {
       page?: number
       page_size?: number
       status?: string
