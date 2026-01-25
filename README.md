@@ -14,7 +14,7 @@ CollabTask is a full-stack application built to showcase **system design**, **sc
 
 ### Interview & portfolio highlights
 
-- **System design:** WebSockets for real-time notifications, multi-tenant org model, Redis rate limiting, Celery background jobs, activity audit logs, optimistic locking on tasks.
+- **System design:** WebSockets for real-time notifications, multi-tenant org model, Redis rate limiting, activity audit logs, optimistic locking on tasks.
 - **Type safety:** End-to-end TypeScript + Zod (frontend) and Pydantic (backend); typed API client and shared domain types.
 - **Reusable UI:** shadcn/ui, CVA variants, shared form + layout components, `cn()` utility.
 - **Scalable structure:** Clear split between API routes, managers, models, and frontend services/stores; Docker Compose for local stack.
@@ -51,12 +51,11 @@ CollabTask is a full-stack application built to showcase **system design**, **sc
 - **Validation:** [Pydantic](https://docs.pydantic.dev/)
 - **Auth:** JWT access + refresh, bcrypt, custom auth middleware & dependency injection
 - **Real-time:** WebSocket endpoint (`/ws/notifications`) with per-user connection management
-- **Background Jobs:** [Celery](https://docs.celeryq.dev/) + Redis (e.g. OTP & transactional emails)
 - **Caching & Rate Limiting:** [Redis](https://redis.io/) (optional cache, Redis-based rate limiter)
 - **Email:** [SendGrid](https://sendgrid.com/) (Jinja2 templates)
 
 ### DevOps & Deployment
-- **Containers:** [Docker](https://www.docker.com/), [Docker Compose](https://docs.docker.com/compose/) (Postgres, Redis, Backend, Celery)
+- **Containers:** [Docker](https://www.docker.com/), [Docker Compose](https://docs.docker.com/compose/) (Postgres, Redis, Backend)
 - **Frontend Hosting:** [Vercel](https://vercel.com/) (demo)
 - **Backend:** Configurable for Cloud Run, GCP, or any container platform
 
@@ -74,16 +73,14 @@ CollabTask is a full-stack application built to showcase **system design**, **sc
 │   Redux, WS     │                  │  │   search, activity, meetings)          │
 └─────────────────┘                  │  ├─ WebSocket /ws/notifications          │
                                      │  ├─ Auth middleware, rate limiting       │
-                                     │  └─ Celery workers (email tasks)         │
                                      └──────────────┬───────────────────────────┘
                                                     │
                     ┌───────────────────────────────┼───────────────────────────────┐
                     ▼                               ▼                               ▼
              ┌─────────────┐                 ┌─────────────┐                 ┌─────────────┐
              │  PostgreSQL │                 │    Redis    │                 │  SendGrid   │
-             │  (Tortoise) │                 │ Cache, RL,  │                 │  (Email)    │
-             └─────────────┘                 │  Celery     │                 └─────────────┘
-                                            └─────────────┘
+             │  (Tortoise) │                 │ Cache, RL   │                 │  (Email)    │
+             └─────────────┘                 └─────────────┘                 └─────────────┘
 ```
 
 ### Design Decisions
@@ -95,7 +92,7 @@ CollabTask is a full-stack application built to showcase **system design**, **sc
 | **Multi-tenancy** | All scoped resources (projects, tasks, members, activity) keyed by `organization_id`; middleware enforces org context. |
 | **Audit & compliance** | Immutable `activities` table; `entity_type`, `entity_id`, `action`, `metadata`, `user_id`, `org_id`. |
 | **Security** | JWT access + refresh, token storage and refresh flow, RBAC via membership roles, Redis rate limiting (per IP + per user). |
-| **Scalability** | Stateless API; Redis for rate limits and Celery broker; DB connection pooling; horizontal scaling of API and workers. |
+| **Scalability** | Stateless API; Redis for rate limits; DB connection pooling; horizontal scaling of API. |
 
 ---
 
@@ -125,7 +122,7 @@ src/
 
 ```
 app/
-├── core/           # config, db, redis, websocket_manager, celery_app, security, lifespan
+├── core/           # config, db, redis, websocket_manager, security, lifespan
 ├── models/         # User, Organization, Project, Task, Membership, Activity, Notification, etc.
 ├── schemas/        # Pydantic request/response models
 ├── managers/       # Business logic (auth, org, project, task, activity, notification, …)
@@ -134,7 +131,6 @@ app/
 ├── middlewares/    # Auth, rate limiting (Redis), request ID
 ├── exceptions/     # Custom HTTP exceptions, handler
 ├── services/       # Email (SendGrid)
-├── tasks/          # Celery tasks (e.g. send_otp_email)
 ├── utils/          # Validators, API response helpers, redis_cache
 └── observability/  # Logging, structure
 migrations/         # Aerich (Tortoise) migrations
@@ -166,7 +162,7 @@ migrations/         # Aerich (Tortoise) migrations
 - Node.js 18+, npm/pnpm
 - Python 3.11+
 - PostgreSQL 15+
-- Redis 7+ (optional for local dev; required for rate limiting & Celery)
+- Redis 7+ (optional for local dev; required for rate limiting)
 - (Optional) SendGrid API key for emails
 
 ### Backend
@@ -174,23 +170,16 @@ migrations/         # Aerich (Tortoise) migrations
 ```bash
 cd Backend
 cp .env.example .env
-# Edit .env: set POSTGRES_*, JWT_SECRET_KEY, REDIS_*, CELERY_*, SENDGRID (if used)
+# Edit .env: set POSTGRES_*, JWT_SECRET_KEY, REDIS_*, SENDGRID (if used)
 
 # Using Docker Compose (recommended)
 docker compose up -d postgres redis
-# Then run migrations and start API + Celery locally, or run backend in Docker too.
+# Then run migrations and start API locally, or run backend in Docker too.
 
 # Or run locally (ensure Postgres + Redis are up)
 pip install -r requirements.txt
 aerich upgrade  # run migrations
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-```
-
-In another terminal, run Celery (if using email tasks):
-
-```bash
-cd Backend
-celery -A app.core.celery_app worker --loglevel=info --pool=solo
 ```
 
 ### Frontend
@@ -213,7 +202,7 @@ From `Backend`:
 docker compose up -d
 ```
 
-This brings up Postgres, Redis, FastAPI, and Celery. Point the frontend’s `NEXT_PUBLIC_API_BASE_URL` at `http://localhost:8000`.
+This brings up Postgres, Redis, and FastAPI. Point the frontend’s `NEXT_PUBLIC_API_BASE_URL` at `http://localhost:8000`.
 
 ---
 
@@ -225,8 +214,7 @@ This brings up Postgres, Redis, FastAPI, and Celery. Point the frontend’s `NEX
 |----------|-------------|
 | `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` | PostgreSQL connection |
 | `JWT_SECRET_KEY` | Secret for access/refresh tokens |
-| `REDIS_HOST`, `REDIS_PORT`, `REDIS_DB` | Redis for rate limiting, Celery |
-| `CELERY_BROKER_URL`, `CELERY_RESULT_BACKEND` | Celery broker and result backend |
+| `REDIS_HOST`, `REDIS_PORT`, `REDIS_DB` | Redis for rate limiting |
 | `SENDGRID_API_KEY`, `FROM_EMAIL`, `FROM_NAME` | SendGrid (optional) |
 | `CORS_ORIGINS` | Comma-separated allowed origins |
 | `ENVIRONMENT` | `development` / `production` |

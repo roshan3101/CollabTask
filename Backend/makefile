@@ -5,18 +5,12 @@ redis:
 	@echo "Starting Redis server..."
 	@redis-server || echo "Redis not found. Install Redis or use Docker: make docker-up"
 
-celery:
-	celery -A app.core.celery_app worker --loglevel=info --reload
-
-# Local dev (Postgres+Redis in Docker, backend+celery on host)
+# Local dev (Postgres+Redis in Docker, backend on host)
 dev-deps:
 	docker-compose up -d postgres redis
 
 dev-migrate:
 	aerich upgrade
-
-dev-celery:
-	celery -A app.core.celery_app worker --loglevel=info --pool=solo
 
 # Docker commands
 docker-build:
