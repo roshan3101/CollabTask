@@ -160,8 +160,6 @@ task_def = {
             {"name": "REDIS_PORT", "value": redis_port},
             {"name": "REDIS_DB", "value": redis_db},
             {"name": "AWS_REGION", "value": aws_region},
-            {"name": "CELERY_BROKER_URL", "value": f"redis://{redis_host}:6379/0"},
-            {"name": "CELERY_RESULT_BACKEND", "value": f"redis://{redis_host}:6379/0"},
             {"name": "CORS_ORIGINS", "value": cors_origins},
             {"name": "POSTGRES_USER", "value": os.environ.get('POSTGRES_USER', '')},
             {"name": "POSTGRES_PASSWORD", "value": os.environ.get('POSTGRES_PASSWORD', '')},
@@ -190,50 +188,6 @@ task_def = {
 with open('task-definition-backend.json', 'w') as f:
     json.dump(task_def, f, indent=2)
 
-# Celery - MINIMAL RESOURCES
-task_def_celery = {
-    "family": "collabtask-celery",
-    "networkMode": "awsvpc",
-    "requiresCompatibilities": ["FARGATE"],
-    "cpu": "256",
-    "memory": "512",
-    "executionRoleArn": "arn:aws:iam::914979267158:role/ecsTaskExecutionRole",
-    "taskRoleArn": "arn:aws:iam::914979267158:role/ecsTaskRole",
-    "containerDefinitions": [{
-        "name": "celery",
-        "image": image_uri,
-        "command": ["celery", "-A", "app.core.celery_app", "worker", "--loglevel=info"],
-        "environment": [
-            {"name": "ENVIRONMENT", "value": "production"},
-            {"name": "POSTGRES_HOST", "value": postgres_host},
-            {"name": "POSTGRES_PORT", "value": postgres_port},
-            {"name": "POSTGRES_DB", "value": postgres_db},
-            {"name": "REDIS_HOST", "value": redis_host},
-            {"name": "REDIS_PORT", "value": redis_port},
-            {"name": "REDIS_DB", "value": redis_db},
-            {"name": "AWS_REGION", "value": aws_region},
-            {"name": "CELERY_BROKER_URL", "value": f"redis://{redis_host}:6379/0"},
-            {"name": "CELERY_RESULT_BACKEND", "value": f"redis://{redis_host}:6379/0"},
-            {"name": "POSTGRES_USER", "value": os.environ.get('POSTGRES_USER', '')},
-            {"name": "POSTGRES_PASSWORD", "value": os.environ.get('POSTGRES_PASSWORD', '')},
-            {"name": "JWT_SECRET_KEY", "value": os.environ.get('JWT_SECRET_KEY', '')},
-            {"name": "AWS_ACCESS_KEY_ID", "value": os.environ.get('AWS_ACCESS_KEY_ID', '')},
-            {"name": "AWS_SECRET_ACCESS_KEY", "value": os.environ.get('AWS_SECRET_ACCESS_KEY', '')}
-        ],
-        "logConfiguration": {
-            "logDriver": "awslogs",
-            "options": {
-                "awslogs-group": "/ecs/collabtask-celery",
-                "awslogs-region": "eu-north-1",
-                "awslogs-stream-prefix": "ecs"
-            }
-        }
-    }]
-}
-
-with open('task-definition-celery.json', 'w') as f:
-    json.dump(task_def_celery, f, indent=2)
-
 print("Task definitions generated")
 PYTHON_SCRIPT
     echo "  ✓ Task definitions generated"
@@ -241,8 +195,6 @@ PYTHON_SCRIPT
     echo -e "\n${YELLOW}[2/5] Registering task definitions...${NC}"
     aws ecs register-task-definition --cli-input-json file://task-definition-backend.json --region $AWS_REGION >/dev/null
     echo "  ✓ Backend registered"
-    aws ecs register-task-definition --cli-input-json file://task-definition-celery.json --region $AWS_REGION >/dev/null
-    echo "  ✓ Celery registered"
     
     echo -e "\n${YELLOW}[3/5] Getting infrastructure info...${NC}"
     VPC_ID=$(aws ec2 describe-vpcs --filters "Name=tag:Name,Values=collabtask-vpc" --query 'Vpcs[0].VpcId' --output text --region $AWS_REGION 2>/dev/null || echo "")
@@ -301,29 +253,6 @@ PYTHON_SCRIPT
         echo "  ✓ Backend service created"
     fi
     
-    # Celery service
-    CELERY_EXISTS=$(aws ecs describe-services --cluster collabtask-cluster --services collabtask-celery --region $AWS_REGION --query 'services[0].status' --output text 2>/dev/null || echo "None")
-    if [ "$CELERY_EXISTS" == "ACTIVE" ]; then
-        aws ecs update-service \
-          --cluster collabtask-cluster \
-          --service collabtask-celery \
-          --task-definition collabtask-celery \
-          --network-configuration "awsvpcConfiguration={subnets=[$PUBLIC_SUBNET_1,$PUBLIC_SUBNET_2],securityGroups=[$ECS_SG],assignPublicIp=ENABLED}" \
-          --force-new-deployment \
-          --region $AWS_REGION >/dev/null
-        echo "  ✓ Celery service updated"
-    else
-        aws ecs create-service \
-          --cluster collabtask-cluster \
-          --service-name collabtask-celery \
-          --task-definition collabtask-celery \
-          --desired-count 1 \
-          --launch-type FARGATE \
-          --network-configuration "awsvpcConfiguration={subnets=[$PUBLIC_SUBNET_1,$PUBLIC_SUBNET_2],securityGroups=[$ECS_SG],assignPublicIp=ENABLED}" \
-          --region $AWS_REGION >/dev/null
-        echo "  ✓ Celery service created"
-    fi
-    
     echo -e "\n${GREEN}✓ Deployment complete!${NC}\n"
     echo -e "${YELLOW}Next Steps:${NC}"
     echo "1. Wait 2-3 minutes for tasks to start"
@@ -380,7 +309,7 @@ view_status() {
     echo -e "${GREEN}=== Service Status ===${NC}\n"
     aws ecs describe-services \
         --cluster collabtask-cluster \
-        --services collabtask-backend collabtask-celery \
+        --services collabtask-backend \
         --region $AWS_REGION \
         --query 'services[*].{Name:serviceName,Status:status,Running:runningCount,Desired:desiredCount}' \
         --output table
@@ -389,16 +318,7 @@ view_status() {
 
 view_logs() {
     echo -e "${GREEN}=== View Logs ===${NC}\n"
-    echo "Select log source:"
-    echo "1. Backend"
-    echo "2. Celery"
-    read -p "Choice: " log_choice
-    
-    case $log_choice in
-        1) LOG_GROUP="/ecs/collabtask-backend" ;;
-        2) LOG_GROUP="/ecs/collabtask-celery" ;;
-        *) echo -e "${RED}Invalid choice${NC}"; return 1 ;;
-    esac
+    LOG_GROUP="/ecs/collabtask-backend"
     
     echo -e "\n${YELLOW}Recent logs (last 50 lines):${NC}"
     LOG_STREAM=$(aws logs describe-log-streams --log-group-name $LOG_GROUP --order-by LastEventTime --descending --max-items 1 --query 'logStreams[0].logStreamName' --output text --region $AWS_REGION 2>/dev/null || echo "")
@@ -415,8 +335,6 @@ restart_services() {
     echo -e "${GREEN}=== Restart Services ===${NC}\n"
     aws ecs update-service --cluster collabtask-cluster --service collabtask-backend --force-new-deployment --region $AWS_REGION >/dev/null
     echo "  ✓ Backend restarted"
-    aws ecs update-service --cluster collabtask-cluster --service collabtask-celery --force-new-deployment --region $AWS_REGION >/dev/null
-    echo "  ✓ Celery restarted"
     echo -e "\n${GREEN}✓ Services restarted${NC}\n"
 }
 
@@ -508,7 +426,7 @@ optimize_costs() {
     echo -e "${GREEN}=== Optimize Costs ===${NC}\n"
     
     echo -e "${YELLOW}[1/2] Setting CloudWatch log retention to 7 days...${NC}"
-    for LOG_GROUP in "/ecs/collabtask-backend" "/ecs/collabtask-celery"; do
+    for LOG_GROUP in "/ecs/collabtask-backend"; do
         if aws logs describe-log-groups --log-group-name-prefix "$LOG_GROUP" --region $AWS_REGION --query "logGroups[?logGroupName=='$LOG_GROUP']" --output text 2>/dev/null | grep -q "$LOG_GROUP"; then
             aws logs put-retention-policy --log-group-name "$LOG_GROUP" --retention-in-days 7 --region $AWS_REGION 2>/dev/null
             if [ $? -eq 0 ]; then

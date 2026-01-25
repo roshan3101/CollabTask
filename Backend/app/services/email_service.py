@@ -2,8 +2,6 @@ import os
 from pathlib import Path
 from typing import Optional, Tuple
 from markdown_it import MarkdownIt
-from sendgrid import SendGridAPIClient
-from sendgrid.helpers.mail import Mail, Email, To, Content, HtmlContent
 from app.core import settings
 import logging
 
@@ -17,15 +15,22 @@ class EmailService:
         self.from_email = settings.FROM_EMAIL
         self.from_name = settings.FROM_NAME
         self.sg_client = None
+        self._is_dev = (getattr(settings, "environment", "development") or "development") == "development"
 
-        if self.sendgrid_api_key:
-            try:
-                self.sg_client = SendGridAPIClient(self.sendgrid_api_key)
-                logger.info("SendGrid client initialized")
-            except Exception as e:
-                logger.error(f"Failed to initialize SendGrid client: {e}")
-        else:
+        if self._is_dev:
+            logger.info("Email service: development mode — OTP will be printed to console, SendGrid disabled.")
+            return
+        if not self.sendgrid_api_key:
             logger.warning("SendGrid API key not configured. Email sending will be disabled.")
+            return
+        try:
+            from sendgrid import SendGridAPIClient
+            self.sg_client = SendGridAPIClient(self.sendgrid_api_key)
+            logger.info("SendGrid client initialized")
+        except ImportError:
+            logger.warning("SendGrid not installed. Email sending disabled. Install with: pip install sendgrid")
+        except Exception as e:
+            logger.error(f"Failed to initialize SendGrid client: {e}")
 
     def _load_template(self, template_name: str) -> str:
         template_path = Path(__file__).parent.parent / "templates" / "email" / f"{template_name}.md"
@@ -55,13 +60,21 @@ class EmailService:
         otp: str,
         expiry_minutes: int = 10
     ) -> bool:
-        """Send OTP email using SendGrid"""
-        
+        """Send OTP email via SendGrid, or in dev just print to console."""
+        if self._is_dev:
+            # Skip SendGrid in dev — print OTP to console for local testing
+            msg = f"[DEV] OTP for {to_email}: {otp}  (expires in {expiry_minutes} min)"
+            print(msg)
+            logger.info(msg)
+            return True
+
         if not self.sg_client:
             logger.error("SendGrid client not initialized. Check SENDGRID_API_KEY in environment variables.")
             return False
 
         try:
+            from sendgrid.helpers.mail import Mail, Email, To, Content, HtmlContent
+
             template_content = self._load_template("otp_email")
             html_content, plain_text_content = self._render_template(
                 template_content,
@@ -97,13 +110,13 @@ class EmailService:
         template_name: str,
         **template_vars
     ) -> bool:
-
-        
         if not self.sg_client:
             logger.error("SendGrid client not initialized. Check SENDGRID_API_KEY in environment variables.")
             return False
 
         try:
+            from sendgrid.helpers.mail import Mail, Email, To, Content, HtmlContent
+
             template_content = self._load_template(template_name)
             html_content, plain_text_content = self._render_template(
                 template_content,

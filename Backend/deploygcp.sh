@@ -8,7 +8,7 @@
 #   1. Run option 1: Setup GCP Project
 #   2. Create Cloud SQL and Memorystore (see GCP_DEPLOYMENT.md)
 #   3. Update .env.prod with GCP endpoints
-#   4. Run option 8: Full Deployment
+#   4. Run option 7: Full Deployment
 
 set +e
 
@@ -23,7 +23,6 @@ NC='\033[0m'
 PROJECT_ID=""  # Set your GCP project ID
 REGION="europe-north1"  # Stockholm (same as AWS eu-north-1)
 SERVICE_NAME="collabtask-backend"
-CELERY_SERVICE_NAME="collabtask-celery"
 
 show_menu() {
     echo -e "${GREEN}=== GCP Deployment Menu ===${NC}\n"
@@ -34,11 +33,8 @@ show_menu() {
     echo "5. View Logs"
     echo "6. Get Service URL"
     echo "7. Full Deployment (Build + Deploy All)"
-    echo "8. Delete Celery Service (if exists)"
     echo "0. Exit"
     echo ""
-    echo -e "${YELLOW}Note: Celery workers don't run on Cloud Run (requires HTTP).${NC}"
-    echo -e "${YELLOW}For async tasks, use Cloud Tasks or run tasks synchronously.${NC}\n"
 }
 
 setup_gcp() {
@@ -222,80 +218,6 @@ deploy_backend_gcp() {
     fi
 }
 
-deploy_celery_gcp() {
-    echo -e "${GREEN}=== Deploy Celery to Cloud Run ===${NC}\n"
-    
-    load_gcp_config || return 1
-    
-    if [ ! -f ".env.prod" ]; then
-        echo -e "${RED}Error: .env.prod not found${NC}"
-        return 1
-    fi
-    
-    source .env.prod
-    
-    # Get image
-    if [ -f ".last-gcp-image" ]; then
-        IMAGE_NAME=$(cat .last-gcp-image)
-    else
-        echo -e "${RED}Error: No image found. Run option 2 first.${NC}"
-        return 1
-    fi
-    
-    # Prepare environment variables
-    ENV_VARS="ENVIRONMENT=production"
-    ENV_VARS="$ENV_VARS,POSTGRES_HOST=$POSTGRES_HOST"
-    ENV_VARS="$ENV_VARS,POSTGRES_PORT=$POSTGRES_PORT"
-    ENV_VARS="$ENV_VARS,POSTGRES_DB=$POSTGRES_DB"
-    ENV_VARS="$ENV_VARS,POSTGRES_USER=$POSTGRES_USER"
-    ENV_VARS="$ENV_VARS,POSTGRES_PASSWORD=$POSTGRES_PASSWORD"
-    ENV_VARS="$ENV_VARS,REDIS_HOST=$REDIS_HOST"
-    ENV_VARS="$ENV_VARS,REDIS_PORT=$REDIS_PORT"
-    ENV_VARS="$ENV_VARS,REDIS_DB=$REDIS_DB"
-    ENV_VARS="$ENV_VARS,AWS_REGION=$AWS_REGION"
-    ENV_VARS="$ENV_VARS,CELERY_BROKER_URL=$CELERY_BROKER_URL"
-    ENV_VARS="$ENV_VARS,CELERY_RESULT_BACKEND=$CELERY_RESULT_BACKEND"
-    ENV_VARS="$ENV_VARS,JWT_SECRET_KEY=$JWT_SECRET_KEY"
-    ENV_VARS="$ENV_VARS,AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID"
-    ENV_VARS="$ENV_VARS,AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY"
-    
-    # Get Cloud SQL connection name if available
-    # Strip /cloudsql/ prefix if present - Cloud Run expects just PROJECT:REGION:INSTANCE
-    CLOUD_SQL_CONNECTION=""
-    if [[ "$POSTGRES_HOST" == /cloudsql/* ]]; then
-        CONNECTION_NAME="${POSTGRES_HOST#/cloudsql/}"
-        CLOUD_SQL_CONNECTION="--add-cloudsql-instances=$CONNECTION_NAME"
-    elif [[ "$POSTGRES_HOST" == *":"*":"* ]]; then
-        # Already in format PROJECT:REGION:INSTANCE (has 2 colons)
-        CLOUD_SQL_CONNECTION="--add-cloudsql-instances=$POSTGRES_HOST"
-    fi
-    
-    echo -e "${YELLOW}Deploying Celery to Cloud Run...${NC}"
-    
-    gcloud run deploy $CELERY_SERVICE_NAME \
-        --image "$IMAGE_NAME" \
-        --platform managed \
-        --region $REGION \
-        --no-allow-unauthenticated \
-        --memory 512Mi \
-        --cpu 1 \
-        --min-instances 0 \
-        --max-instances 5 \
-        --timeout 3600 \
-        --command='celery' \
-        --args='-A,app.core.celery_app,worker,--loglevel=info' \
-        --set-env-vars "$ENV_VARS" \
-        $CLOUD_SQL_CONNECTION \
-        --quiet
-    
-    if [ $? -eq 0 ]; then
-        echo -e "\n${GREEN}✓ Celery deployed!${NC}\n"
-    else
-        echo -e "${RED}✗ Deployment failed${NC}\n"
-        return 1
-    fi
-}
-
 view_status_gcp() {
     echo -e "${GREEN}=== Cloud Run Service Status ===${NC}\n"
     load_gcp_config || return 1
@@ -337,15 +259,6 @@ get_service_url() {
     fi
 }
 
-delete_celery_service() {
-    echo -e "${GREEN}=== Delete Celery Service ===${NC}\n"
-    load_gcp_config || return 1
-    
-    echo -e "${YELLOW}Deleting Celery service (if exists)...${NC}"
-    gcloud run services delete $CELERY_SERVICE_NAME --region $REGION --quiet 2>/dev/null
-    echo -e "${GREEN}✓ Done${NC}\n"
-}
-
 full_deployment_gcp() {
     echo -e "${GREEN}=== Full GCP Deployment ===${NC}\n"
     build_and_push_gcp || return 1
@@ -367,7 +280,6 @@ while true; do
         5) view_logs_gcp ;;
         6) get_service_url ;;
         7) full_deployment_gcp ;;
-        8) delete_celery_service ;;
         0) echo "Exiting..."; exit 0 ;;
         *) echo -e "${RED}Invalid option${NC}\n" ;;
     esac
